@@ -46,7 +46,7 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
       <div className="relative bg-white/60 backdrop-blur-2xl rounded-3xl border border-white/60 shadow-[0_24px_80px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.7)] w-[520px] max-w-[90vw] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-8 py-5 border-b border-gray-200/30">
-          <h2 className="text-[15px] font-semibold text-gray-800">Settings</h2>
+          <h2 className="text-[17px] font-semibold text-gray-800">Settings</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-black/5 transition-all"
@@ -77,7 +77,7 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
                 placeholder="sk-ant-..."
-                className="flex-1 text-[13px] text-gray-800 placeholder-gray-400/50 bg-white/70 backdrop-blur-sm rounded-xl px-4 py-2.5 outline-none border border-white/50 focus:border-blue-300/60 focus:bg-white/90 transition-all font-mono"
+                className="flex-1 text-[13px] text-gray-800 placeholder-gray-400/50 bg-white/70 backdrop-blur-sm rounded-xl px-5 py-3.5 outline-none border border-white/50 focus:border-blue-300/60 focus:bg-white/90 transition-all font-mono"
               />
               {key && key !== settings.apiKey && (
                 <button
@@ -126,7 +126,7 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
                     key={m.id}
                     onClick={() => available && onUpdate({ model: m.id })}
                     disabled={!available}
-                    className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-left transition-all ${
+                    className={`w-full flex items-center justify-between px-5 py-3.5 rounded-xl text-left transition-all ${
                       !available
                         ? "opacity-35 cursor-not-allowed bg-gray-100/30 border border-transparent"
                         : isSelected
