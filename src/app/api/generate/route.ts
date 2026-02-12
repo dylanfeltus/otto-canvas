@@ -43,8 +43,13 @@ export async function POST(req: NextRequest) {
   } catch (err: unknown) {
     console.error("Generation error:", err);
     const message = err instanceof Error ? err.message : "Failed to generate designs";
-    const status = message.includes("auth") || message.includes("API key") ? 401 : 500;
-    return NextResponse.json({ error: message }, { status });
+    if (message.includes("not_found") || message.includes("404")) {
+      return NextResponse.json({ error: "Model not available with this API key. Try a different model in Settings." }, { status: 400 });
+    }
+    if (message.includes("auth") || message.includes("401") || message.includes("API key")) {
+      return NextResponse.json({ error: "Invalid API key. Check your key in Settings." }, { status: 401 });
+    }
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

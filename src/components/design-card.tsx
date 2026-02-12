@@ -23,72 +23,71 @@ export function DesignCard({
   apiKey,
   model,
 }: DesignCardProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const shadowRef = useRef<ShadowRoot | null>(null);
-  const [naturalSize, setNaturalSize] = useState({ width: 420, height: 300 });
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 420, height: 320 });
 
-  const measureContent = useCallback(() => {
-    if (!shadowRef.current) return;
-
-    // Wait for images/fonts then measure
-    const measure = () => {
-      if (!shadowRef.current) return;
-      const root = shadowRef.current.firstElementChild as HTMLElement;
-      if (!root) return;
-
-      // Force layout recalc
-      root.style.width = "max-content";
-      root.style.position = "relative";
-
-      // Walk all children to find actual bounding box
-      const allEls = shadowRef.current.querySelectorAll("*");
-      let maxW = root.offsetWidth;
-      let maxH = root.offsetHeight;
-
-      allEls.forEach((el) => {
-        const htmlEl = el as HTMLElement;
-        maxW = Math.max(maxW, htmlEl.scrollWidth, htmlEl.offsetWidth);
-        maxH = Math.max(maxH, htmlEl.scrollHeight + htmlEl.offsetTop);
-      });
-
-      // Also check root scroll dimensions
-      maxW = Math.max(maxW, root.scrollWidth);
-      maxH = Math.max(maxH, root.scrollHeight);
-
-      const w = Math.max(Math.min(maxW + 2, 900), 200);
-      const h = Math.max(Math.min(maxH + 2, 2000), 80);
-
-      setNaturalSize({ width: w, height: h });
-
-      // Reset style overrides
-      root.style.width = "";
-      root.style.position = "";
-    };
-
-    // Measure multiple times to catch late-loading content
-    requestAnimationFrame(measure);
-    setTimeout(measure, 100);
-    setTimeout(measure, 500);
+  const measureIframe = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    try {
+      const doc = iframe.contentDocument;
+      if (!doc?.body) return;
+      const w = Math.max(doc.body.scrollWidth, doc.documentElement.scrollWidth, 200);
+      const h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight, 80);
+      setSize({ width: Math.min(w + 2, 900), height: h + 2 });
+    } catch {}
   }, []);
 
   useEffect(() => {
-    if (!containerRef.current || !iteration.html) return;
+    if (!iteration.html || iteration.isLoading) return;
+    const iframe = iframeRef.current;
+    if (!iframe) return;
 
-    if (!shadowRef.current) {
-      shadowRef.current = containerRef.current.attachShadow({ mode: "open" });
-    }
+    const doc = iframe.contentDocument;
+    if (!doc) return;
 
-    // Inject a reset + the generated HTML
-    shadowRef.current.innerHTML = `<style>:host { display: block; } * { box-sizing: border-box; }</style>${iteration.html}`;
+    // Write content into iframe
+    doc.open();
+    doc.write(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+  html, body { margin: 0; padding: 0; overflow: hidden; background: white; }
+  body { width: max-content; min-width: 200px; }
+</style></head><body>${iteration.html}</body></html>`);
+    doc.close();
 
-    measureContent();
-  }, [iteration.html, measureContent]);
+    // Measure after load + multiple passes for fonts/images
+    const measure = () => measureIframe();
+    measure();
+    setTimeout(measure, 50);
+    setTimeout(measure, 200);
+    setTimeout(measure, 600);
+    setTimeout(measure, 1200);
+
+    // ResizeObserver on body for dynamic content
+    let ro: ResizeObserver | null = null;
+    try {
+      if (doc.body) {
+        ro = new ResizeObserver(measure);
+        ro.observe(doc.body);
+      }
+    } catch {}
+
+    // Also listen for images
+    const imgs = doc.querySelectorAll("img");
+    imgs.forEach((img) => img.addEventListener("load", measure));
+
+    return () => {
+      ro?.disconnect();
+      imgs.forEach((img) => img.removeEventListener("load", measure));
+    };
+  }, [iteration.html, iteration.isLoading, measureIframe]);
 
   const handleClick = (e: React.MouseEvent) => {
     if (!isCommentMode) return;
     e.stopPropagation();
 
-    const rect = containerRef.current?.getBoundingClientRect();
+    const rect = wrapperRef.current?.getBoundingClientRect();
     if (!rect) return;
 
     const x = (e.clientX - rect.left) / scale;
@@ -102,7 +101,7 @@ export function DesignCard({
       style={{
         left: iteration.position.x,
         top: iteration.position.y,
-        width: naturalSize.width,
+        width: size.width,
       }}
     >
       {/* Label + export */}
@@ -125,31 +124,26 @@ export function DesignCard({
         )}
       </div>
 
-      {/* Design render area — NO overflow:hidden so content can be measured properly */}
+      {/* Design render area */}
       <div
+        ref={wrapperRef}
+        onClick={handleClick}
         className={`relative bg-white rounded-xl shadow-md border border-gray-200/80 transition-all ${
           isCommentMode
             ? "cursor-crosshair ring-2 ring-blue-400/20 hover:ring-blue-400/40 hover:shadow-lg"
             : "cursor-default hover:shadow-lg"
         } ${iteration.isRegenerating ? "opacity-60" : ""}`}
-        style={{
-          height: iteration.isLoading ? 300 : naturalSize.height,
-          overflow: "hidden",
-        }}
+        style={{ width: size.width, height: iteration.isLoading ? 320 : size.height, overflow: "hidden" }}
       >
         {iteration.isLoading ? (
-          <div className="p-8 space-y-4 animate-pulse">
-            <div className="h-6 bg-gray-200 rounded-lg w-3/4" />
-            <div className="h-4 bg-gray-200 rounded-lg w-full" />
-            <div className="h-4 bg-gray-200 rounded-lg w-5/6" />
-            <div className="h-32 bg-gray-100 rounded-lg" />
-            <div className="h-4 bg-gray-200 rounded-lg w-2/3" />
-          </div>
+          <LoadingSkeleton />
         ) : (
-          <div
-            ref={containerRef}
-            onClick={handleClick}
-            className="w-full h-full"
+          <iframe
+            ref={iframeRef}
+            title={iteration.label}
+            sandbox="allow-same-origin"
+            className="w-full h-full border-0 pointer-events-none rounded-xl"
+            style={{ width: size.width, height: size.height }}
           />
         )}
 
@@ -162,6 +156,24 @@ export function DesignCard({
           />
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Premium loading state — animated gradient shimmer */
+function LoadingSkeleton() {
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-8">
+      {/* Shimmer lines */}
+      <div className="w-full space-y-3">
+        <div className="shimmer h-5 rounded-lg w-2/3" />
+        <div className="shimmer h-3.5 rounded-lg w-full" style={{ animationDelay: "0.1s" }} />
+        <div className="shimmer h-3.5 rounded-lg w-5/6" style={{ animationDelay: "0.2s" }} />
+        <div className="shimmer h-24 rounded-xl w-full mt-2" style={{ animationDelay: "0.15s" }} />
+        <div className="shimmer h-3.5 rounded-lg w-4/6" style={{ animationDelay: "0.25s" }} />
+        <div className="shimmer h-3.5 rounded-lg w-3/6" style={{ animationDelay: "0.3s" }} />
+      </div>
+      <span className="text-[11px] font-medium text-gray-400 mt-2">Generating...</span>
     </div>
   );
 }

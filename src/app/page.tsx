@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefCallback } from "react";
 import { useCanvas } from "@/hooks/use-canvas";
 import { useSettings } from "@/hooks/use-settings";
 import { DesignCard } from "@/components/design-card";
@@ -20,7 +20,11 @@ import type {
 export default function Home() {
   const canvas = useCanvas();
   const { settings, setSettings, isOwnKey, availableModels, isProbing } = useSettings();
-  const canvasRef = useRef<HTMLDivElement>(null);
+  const canvasElRef = useRef<HTMLDivElement | null>(null);
+  const combinedCanvasRef: RefCallback<HTMLDivElement> = useCallback((el) => {
+    canvasElRef.current = el;
+    canvas.setCanvasRef(el);
+  }, [canvas.setCanvasRef]);
   const [groups, setGroups] = useState<GenerationGroup[]>([]);
   const [toolMode, setToolMode] = useState<ToolMode>("select");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -196,7 +200,7 @@ export default function Home() {
 
   const handleAddComment = useCallback(
     (iterationId: string, position: Point) => {
-      const rect = canvasRef.current?.getBoundingClientRect();
+      const rect = canvasElRef.current?.getBoundingClientRect();
       if (!rect) return;
 
       // Find the iteration to compute screen position
@@ -324,7 +328,7 @@ export default function Home() {
     <div className="h-screen w-screen overflow-hidden relative select-none">
       {/* Canvas layer — this is what pans/zooms */}
       <div
-        ref={canvasRef}
+        ref={combinedCanvasRef}
         className={`absolute inset-0 canvas-dots ${
           canPan ? "cursor-grab active:cursor-grabbing" : ""
         } ${toolMode === "comment" && !spaceHeld ? "cursor-crosshair" : ""}`}

@@ -2,7 +2,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 
 const MODELS = [
+  "claude-opus-4-0626",
   "claude-opus-4-20250514",
+  "claude-sonnet-4-5-20250514",
   "claude-sonnet-4-20250514",
 ];
 

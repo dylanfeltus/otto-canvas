@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface Point {
   x: number;
@@ -20,9 +20,9 @@ export function useCanvas() {
 
   const isPanning = useRef(false);
   const lastMouse = useRef<Point>({ x: 0, y: 0 });
+  const canvasElRef = useRef<HTMLElement | null>(null);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
-    // Only pan with middle button or when space is held (handled by parent)
     if (e.button === 1 || e.button === 0) {
       isPanning.current = true;
       lastMouse.current = { x: e.clientX, y: e.clientY };
@@ -44,7 +44,8 @@ export function useCanvas() {
     isPanning.current = false;
   }, []);
 
-  const onWheel = useCallback((e: React.WheelEvent) => {
+  // Native wheel handler — attached with { passive: false } to allow preventDefault
+  const wheelHandler = useCallback((e: WheelEvent) => {
     e.preventDefault();
 
     if (e.ctrlKey || e.metaKey) {
@@ -78,6 +79,29 @@ export function useCanvas() {
     }
   }, []);
 
+  // Ref callback to attach/detach native wheel listener with passive: false
+  const setCanvasRef = useCallback(
+    (el: HTMLElement | null) => {
+      if (canvasElRef.current) {
+        canvasElRef.current.removeEventListener("wheel", wheelHandler);
+      }
+      canvasElRef.current = el;
+      if (el) {
+        el.addEventListener("wheel", wheelHandler, { passive: false });
+      }
+    },
+    [wheelHandler]
+  );
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (canvasElRef.current) {
+        canvasElRef.current.removeEventListener("wheel", wheelHandler);
+      }
+    };
+  }, [wheelHandler]);
+
   const screenToCanvas = useCallback(
     (screenX: number, screenY: number, rect: DOMRect): Point => {
       return {
@@ -110,10 +134,10 @@ export function useCanvas() {
     offset: state.offset,
     scale: state.scale,
     isPanning,
+    setCanvasRef,
     onMouseDown,
     onMouseMove,
     onMouseUp,
-    onWheel,
     screenToCanvas,
     resetView,
     zoomIn,
