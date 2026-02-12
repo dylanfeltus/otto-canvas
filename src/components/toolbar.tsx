@@ -20,7 +20,7 @@ export function Toolbar({
   onResetView,
 }: ToolbarProps) {
   return (
-    <div className="fixed top-4 left-4 z-50 flex items-center gap-1 bg-[#1e1e1e] rounded-xl px-1.5 py-1.5 shadow-2xl">
+    <div className="fixed top-4 left-4 z-50 flex items-center gap-1 rounded-2xl px-2 py-2 bg-gray-900/60 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.08)]">
       {/* Select tool */}
       <ToolButton
         active={mode === "select"}
@@ -43,7 +43,7 @@ export function Toolbar({
         </svg>
       </ToolButton>
 
-      <div className="w-px h-6 bg-gray-600 mx-1" />
+      <div className="w-px h-5 bg-white/15 mx-1" />
 
       {/* Zoom controls */}
       <ToolButton onClick={onZoomOut} title="Zoom out">
@@ -54,7 +54,7 @@ export function Toolbar({
 
       <button
         onClick={onResetView}
-        className="text-xs text-gray-400 hover:text-white px-1.5 py-1 rounded min-w-[42px] text-center transition-colors"
+        className="text-[11px] font-medium text-gray-400 hover:text-white px-1.5 py-1 rounded-lg min-w-[42px] text-center transition-colors"
         title="Reset zoom"
       >
         {Math.round(scale * 100)}%
@@ -85,10 +85,10 @@ function ToolButton({
     <button
       onClick={onClick}
       title={title}
-      className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+      className={`w-8 h-8 flex items-center justify-center rounded-xl transition-all ${
         active
-          ? "bg-blue-500 text-white"
-          : "text-gray-400 hover:text-white hover:bg-gray-700"
+          ? "bg-blue-500/90 text-white shadow-[0_0_12px_rgba(59,130,246,0.4)]"
+          : "text-gray-400 hover:text-white hover:bg-white/10"
       }`}
     >
       {children}

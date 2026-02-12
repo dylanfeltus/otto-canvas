@@ -57,31 +57,60 @@ export default function Home() {
     };
   }, []);
 
-  // Calculate where to place new generations
-  const getNextGroupPosition = useCallback((): Point => {
-    if (groups.length === 0) {
-      // Center of viewport
+  // Calculate positions that fit ALL iterations in the current viewport
+  const getViewportFittedPositions = useCallback(
+    (count: number): Point[] => {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      return {
-        x: (vw / 2 - canvas.offset.x) / canvas.scale - 200,
-        y: (vh / 2 - canvas.offset.y) / canvas.scale - 100,
-      };
-    }
-    // Below the last group
-    const last = groups[groups.length - 1];
-    return {
-      x: last.position.x,
-      y: last.position.y + 600,
-    };
-  }, [groups, canvas.offset, canvas.scale]);
+      const cardWidth = 400;
+      const gap = 40;
+      const totalWidth = count * cardWidth + (count - 1) * gap;
+
+      // If total width fits in viewport, lay out in a row centered
+      // Otherwise, do a 2-column grid
+      const padding = 80; // breathing room from edges
+      const availableWidth = vw - padding * 2;
+      const availableHeight = vh - padding * 2 - 120; // room for prompt bar
+
+      let positions: Point[];
+
+      if (totalWidth <= availableWidth / canvas.scale) {
+        // Single row, centered in viewport
+        const startX =
+          (vw / 2 - canvas.offset.x) / canvas.scale - totalWidth / 2;
+        const centerY =
+          (vh / 2 - canvas.offset.y - 60) / canvas.scale - 150;
+
+        positions = Array.from({ length: count }, (_, i) => ({
+          x: startX + i * (cardWidth + gap),
+          y: centerY,
+        }));
+      } else {
+        // 2-column grid
+        const cols = 2;
+        const gridWidth = cols * cardWidth + (cols - 1) * gap;
+        const startX =
+          (vw / 2 - canvas.offset.x) / canvas.scale - gridWidth / 2;
+        const startY =
+          (padding - canvas.offset.y) / canvas.scale;
+
+        positions = Array.from({ length: count }, (_, i) => ({
+          x: startX + (i % cols) * (cardWidth + gap),
+          y: startY + Math.floor(i / cols) * (380 + gap),
+        }));
+      }
+
+      return positions;
+    },
+    [canvas.offset, canvas.scale]
+  );
 
   const handleGenerate = useCallback(
     async (prompt: string) => {
       setIsGenerating(true);
       const groupId = `group-${Date.now()}`;
-      const pos = getNextGroupPosition();
       const iterationCount = 4;
+      const positions = getViewportFittedPositions(iterationCount);
 
       // Create placeholder iterations
       const placeholders: DesignIteration[] = Array.from(
@@ -90,7 +119,7 @@ export default function Home() {
           id: `${groupId}-iter-${i}`,
           html: "",
           label: `Variation ${i + 1}`,
-          position: { x: pos.x + i * 440, y: pos.y },
+          position: positions[i],
           width: 400,
           height: 300,
           prompt,
@@ -103,7 +132,7 @@ export default function Home() {
         id: groupId,
         prompt,
         iterations: placeholders,
-        position: pos,
+        position: positions[0],
         createdAt: Date.now(),
       };
 
@@ -156,19 +185,15 @@ export default function Home() {
         setIsGenerating(false);
       }
     },
-    [getNextGroupPosition]
+    [getViewportFittedPositions]
   );
 
   const handleAddComment = useCallback(
     (iterationId: string, position: Point) => {
-      // Get screen position for the comment input popover
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect) return;
 
-      const screenX = position.x * canvas.scale + canvas.offset.x + rect.left;
-      const screenY = position.y * canvas.scale + canvas.offset.y + rect.top;
-
-      // Find the iteration to get its canvas position
+      // Find the iteration to compute screen position
       for (const group of groups) {
         const iter = group.iterations.find((it) => it.id === iterationId);
         if (iter) {
@@ -208,7 +233,6 @@ export default function Home() {
 
       // Add comment to the iteration
       let targetIteration: DesignIteration | null = null;
-      let targetGroupId = "";
 
       setGroups((prev) =>
         prev.map((g) => ({
@@ -216,7 +240,6 @@ export default function Home() {
           iterations: g.iterations.map((iter) => {
             if (iter.id === commentDraft.iterationId) {
               targetIteration = iter;
-              targetGroupId = g.id;
               return {
                 ...iter,
                 comments: [...iter.comments, newComment],
@@ -290,11 +313,11 @@ export default function Home() {
   const allIterations = groups.flatMap((g) => g.iterations);
 
   return (
-    <div className="h-screen w-screen overflow-hidden relative">
-      {/* Canvas */}
+    <div className="h-screen w-screen overflow-hidden relative select-none">
+      {/* Canvas layer — this is what pans/zooms */}
       <div
         ref={canvasRef}
-        className={`w-full h-full canvas-dots ${
+        className={`absolute inset-0 canvas-dots ${
           canPan ? "cursor-grab active:cursor-grabbing" : ""
         } ${toolMode === "comment" && !spaceHeld ? "cursor-crosshair" : ""}`}
         onMouseDown={canPan ? canvas.onMouseDown : undefined}
@@ -303,11 +326,12 @@ export default function Home() {
         onMouseLeave={canvas.onMouseUp}
         onWheel={canvas.onWheel}
       >
-        {/* Transform layer */}
+        {/* Transform layer — only this moves/scales */}
         <div
           style={{
             transform: `translate(${canvas.offset.x}px, ${canvas.offset.y}px) scale(${canvas.scale})`,
             transformOrigin: "0 0",
+            willChange: "transform",
           }}
         >
           {allIterations.map((iteration) => (
@@ -324,12 +348,12 @@ export default function Home() {
 
         {/* Empty state */}
         {groups.length === 0 && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <div className="text-center">
-              <h1 className="text-2xl font-semibold text-gray-400 mb-2">
+              <h1 className="text-2xl font-semibold text-gray-300 mb-2">
                 DesignBuddy Canvas
               </h1>
-              <p className="text-gray-400 text-sm">
+              <p className="text-gray-400/70 text-sm">
                 Type a prompt below to generate designs
               </p>
             </div>
@@ -337,7 +361,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* Toolbar */}
+      {/* Fixed UI — OUTSIDE canvas transform, never moves/scales */}
       <Toolbar
         mode={toolMode}
         onModeChange={setToolMode}
@@ -347,7 +371,6 @@ export default function Home() {
         onResetView={canvas.resetView}
       />
 
-      {/* Prompt bar */}
       <PromptBar onSubmit={handleGenerate} isGenerating={isGenerating} />
 
       {/* Comment input popover */}
@@ -362,24 +385,24 @@ export default function Home() {
         />
       )}
 
-      {/* Active comment detail */}
+      {/* Active comment detail panel */}
       {activeComment && (
-        <div className="fixed top-4 right-4 z-50 bg-white rounded-xl shadow-2xl border border-gray-200 p-4 w-[260px]">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center">
+        <div className="fixed top-4 right-4 z-50 bg-white/50 backdrop-blur-2xl rounded-2xl border border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.7)] p-4 w-[260px]">
+          <div className="flex items-center gap-2 mb-2.5">
+            <span className="w-6 h-6 rounded-full bg-blue-500/90 text-white text-[11px] font-bold flex items-center justify-center shadow-sm">
               {activeComment.number}
             </span>
-            <span className="text-xs text-gray-400">
+            <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
               Comment #{activeComment.number}
             </span>
             <button
               onClick={() => setActiveComment(null)}
-              className="ml-auto text-gray-400 hover:text-gray-600 text-sm"
+              className="ml-auto text-gray-400 hover:text-gray-600 text-sm leading-none p-1 rounded-lg hover:bg-black/5 transition-colors"
             >
               ✕
             </button>
           </div>
-          <p className="text-sm text-gray-700">{activeComment.text}</p>
+          <p className="text-[13px] text-gray-700 leading-relaxed">{activeComment.text}</p>
         </div>
       )}
     </div>

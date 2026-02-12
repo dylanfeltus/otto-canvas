@@ -67,30 +67,35 @@ export function DesignCard({
     >
       {/* Label */}
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-xs font-medium text-gray-500 bg-white/80 backdrop-blur-sm px-2 py-0.5 rounded">
+        <span className="text-xs font-medium text-gray-500/80 bg-white/60 backdrop-blur-sm px-2.5 py-0.5 rounded-lg border border-white/40">
           {iteration.label}
         </span>
         {iteration.isRegenerating && (
-          <span className="text-xs text-blue-500 animate-pulse">Revising...</span>
+          <span className="text-xs text-blue-500 font-medium animate-pulse flex items-center gap-1">
+            <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="60" strokeDashoffset="20" strokeLinecap="round" />
+            </svg>
+            Revising...
+          </span>
         )}
       </div>
 
       {/* Design render area */}
       <div
-        className={`relative bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden transition-shadow ${
+        className={`relative bg-white rounded-xl shadow-md border border-gray-200/80 overflow-hidden transition-all ${
           isCommentMode
-            ? "cursor-crosshair hover:shadow-lg hover:border-blue-300"
-            : "cursor-default"
-        }`}
+            ? "cursor-crosshair ring-2 ring-blue-400/20 hover:ring-blue-400/40 hover:shadow-lg"
+            : "cursor-default hover:shadow-lg"
+        } ${iteration.isRegenerating ? "opacity-60" : ""}`}
         style={{ minHeight: naturalSize.height }}
       >
         {iteration.isLoading ? (
           <div className="p-8 space-y-4 animate-pulse">
-            <div className="h-6 bg-gray-200 rounded w-3/4" />
-            <div className="h-4 bg-gray-200 rounded w-full" />
-            <div className="h-4 bg-gray-200 rounded w-5/6" />
-            <div className="h-32 bg-gray-100 rounded" />
-            <div className="h-4 bg-gray-200 rounded w-2/3" />
+            <div className="h-6 bg-gray-200 rounded-lg w-3/4" />
+            <div className="h-4 bg-gray-200 rounded-lg w-full" />
+            <div className="h-4 bg-gray-200 rounded-lg w-5/6" />
+            <div className="h-32 bg-gray-100 rounded-lg" />
+            <div className="h-4 bg-gray-200 rounded-lg w-2/3" />
           </div>
         ) : (
           <div
@@ -121,20 +126,39 @@ function CommentPin({
   comment: CommentType;
   onClick: () => void;
 }) {
+  const [isNew, setIsNew] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsNew(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <button
-      className="absolute z-20 w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center shadow-lg hover:bg-blue-600 hover:scale-110 transition-all cursor-pointer border-2 border-white"
+    <div
+      className="absolute z-20"
       style={{
-        left: comment.position.x - 12,
-        top: comment.position.y - 12,
+        left: comment.position.x - 14,
+        top: comment.position.y - 14,
       }}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      title={comment.text}
     >
-      {comment.number}
-    </button>
+      {/* Pulse ring for new comments */}
+      {isNew && (
+        <span className="absolute inset-0 rounded-full bg-blue-400/30 animate-ping" />
+      )}
+      {/* Drop shadow / anchor indicator */}
+      <span
+        className="absolute left-1/2 -translate-x-1/2 top-full w-0.5 h-2 bg-blue-400/60"
+      />
+      <button
+        className="relative w-7 h-7 rounded-full bg-blue-500 text-white text-[11px] font-bold flex items-center justify-center shadow-[0_2px_8px_rgba(59,130,246,0.4)] hover:bg-blue-600 hover:scale-110 transition-all cursor-pointer border-2 border-white"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        title={comment.text}
+      >
+        {comment.number}
+      </button>
+    </div>
   );
 }

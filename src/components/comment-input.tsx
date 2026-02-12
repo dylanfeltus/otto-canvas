@@ -11,10 +11,15 @@ interface CommentInputProps {
 export function CommentInput({ position, onSubmit, onCancel }: CommentInputProps) {
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Clamp position so it doesn't overflow viewport
+  const clampedX = Math.min(position.screenX + 16, window.innerWidth - 300);
+  const clampedY = Math.min(position.screenY - 8, window.innerHeight - 200);
 
   const handleSubmit = () => {
     const trimmed = text.trim();
@@ -24,13 +29,17 @@ export function CommentInput({ position, onSubmit, onCancel }: CommentInputProps
 
   return (
     <div
-      className="fixed z-[60] animate-in fade-in slide-in-from-top-1 duration-150"
+      ref={containerRef}
+      className="fixed z-[60]"
       style={{
-        left: position.screenX + 16,
-        top: position.screenY - 8,
+        left: clampedX,
+        top: Math.max(8, clampedY),
       }}
     >
-      <div className="bg-white rounded-xl shadow-2xl border border-gray-200 p-3 w-[280px]">
+      <div className="bg-white/50 backdrop-blur-2xl rounded-2xl border border-white/60 shadow-[0_8px_40px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.7)] p-3 w-[272px]">
+        <div className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 px-1">
+          Revision comment
+        </div>
         <textarea
           ref={inputRef}
           value={text}
@@ -43,22 +52,22 @@ export function CommentInput({ position, onSubmit, onCancel }: CommentInputProps
             if (e.key === "Escape") onCancel();
           }}
           placeholder="Describe your revision..."
-          className="w-full text-sm text-gray-800 placeholder-gray-400 bg-gray-50 rounded-lg px-3 py-2 outline-none resize-none focus:bg-white focus:ring-1 focus:ring-blue-300 transition-colors"
+          className="w-full text-[13px] text-gray-800 placeholder-gray-400/60 bg-white/60 backdrop-blur-sm rounded-xl px-3 py-2.5 outline-none resize-none border border-white/40 focus:border-blue-300/60 focus:bg-white/80 transition-all"
           rows={3}
         />
-        <div className="flex items-center justify-between mt-2">
+        <div className="flex items-center justify-between mt-2.5 px-0.5">
           <button
             onClick={onCancel}
-            className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 transition-colors"
+            className="text-[12px] text-gray-400 hover:text-gray-600 px-2.5 py-1.5 rounded-lg hover:bg-black/5 transition-all"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={!text.trim()}
-            className="text-xs font-medium text-white bg-blue-500 hover:bg-blue-600 disabled:opacity-40 px-3 py-1.5 rounded-lg transition-colors"
+            className="text-[12px] font-medium text-white bg-blue-500/90 hover:bg-blue-500 disabled:opacity-30 px-4 py-1.5 rounded-xl transition-all shadow-sm backdrop-blur-sm"
           >
-            Add Comment
+            Revise ↵
           </button>
         </div>
       </div>
