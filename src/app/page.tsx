@@ -38,6 +38,14 @@ export default function Home() {
     screenX: number;
     screenY: number;
   } | null>(null);
+
+  // Drag state for moving frames
+  const dragRef = useRef<{
+    iterationId: string;
+    startMouse: Point;
+    startPos: Point;
+  } | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [activeComment, setActiveComment] = useState<CommentType | null>(null);
 
   const commentCountRef = useRef(0);
@@ -336,7 +344,60 @@ export default function Home() {
     setActiveComment((prev) => (prev?.id === comment.id ? null : comment));
   }, []);
 
-  const canPan = spaceHeld || toolMode === "select";
+  // Frame drag handlers
+  const handleFrameDragStart = useCallback(
+    (iterationId: string, e: React.MouseEvent) => {
+      if (toolMode !== "select" || spaceHeld) return;
+      e.stopPropagation(); // prevent canvas pan
+
+      // Find the iteration's current position
+      for (const group of groups) {
+        const iter = group.iterations.find((it) => it.id === iterationId);
+        if (iter) {
+          dragRef.current = {
+            iterationId,
+            startMouse: { x: e.clientX, y: e.clientY },
+            startPos: { ...iter.position },
+          };
+          setDraggingId(iterationId);
+          break;
+        }
+      }
+    },
+    [toolMode, spaceHeld, groups]
+  );
+
+  const handleFrameDragMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!dragRef.current) return;
+      const dx = (e.clientX - dragRef.current.startMouse.x) / canvas.scale;
+      const dy = (e.clientY - dragRef.current.startMouse.y) / canvas.scale;
+
+      const newPos = {
+        x: dragRef.current.startPos.x + dx,
+        y: dragRef.current.startPos.y + dy,
+      };
+
+      setGroups((prev) =>
+        prev.map((g) => ({
+          ...g,
+          iterations: g.iterations.map((iter) =>
+            iter.id === dragRef.current!.iterationId
+              ? { ...iter, position: newPos }
+              : iter
+          ),
+        }))
+      );
+    },
+    [canvas.scale]
+  );
+
+  const handleFrameDragEnd = useCallback(() => {
+    dragRef.current = null;
+    setDraggingId(null);
+  }, []);
+
+  const canPan = (spaceHeld || toolMode === "select") && !draggingId;
 
   const allIterations = groups.flatMap((g) => g.iterations);
 
@@ -349,9 +410,15 @@ export default function Home() {
           canPan ? "cursor-grab active:cursor-grabbing" : ""
         } ${toolMode === "comment" && !spaceHeld ? "cursor-crosshair" : ""}`}
         onMouseDown={canPan ? canvas.onMouseDown : undefined}
-        onMouseMove={canvas.onMouseMove}
-        onMouseUp={canvas.onMouseUp}
-        onMouseLeave={canvas.onMouseUp}
+        onMouseMove={(e) => {
+          if (draggingId) { handleFrameDragMove(e); } else { canvas.onMouseMove(e); }
+        }}
+        onMouseUp={() => {
+          if (draggingId) { handleFrameDragEnd(); } else { canvas.onMouseUp(); }
+        }}
+        onMouseLeave={() => {
+          if (draggingId) { handleFrameDragEnd(); } else { canvas.onMouseUp(); }
+        }}
       >
         {/* Transform layer — only this moves/scales */}
         <div

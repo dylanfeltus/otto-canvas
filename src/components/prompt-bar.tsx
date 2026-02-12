@@ -21,7 +21,7 @@ export function PromptBar({ onSubmit, isGenerating, onCancel }: PromptBarProps) 
 
   return (
     <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-      <div className="pointer-events-auto flex items-center rounded-[20px] px-5 py-3.5 w-[580px] max-w-[90vw] transition-all duration-300 bg-white/20 backdrop-blur-3xl border border-white/30 shadow-[0_8px_40px_rgba(0,0,0,0.06),0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-1px_0_rgba(255,255,255,0.15)] focus-within:shadow-[0_12px_48px_rgba(59,130,246,0.1),0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.9),inset_0_-1px_0_rgba(255,255,255,0.3)] focus-within:bg-white/30 focus-within:border-white/50">
+      <div className="pointer-events-auto flex items-center rounded-[20px] px-6 py-4 w-[600px] max-w-[90vw] transition-all duration-300 bg-white/20 backdrop-blur-3xl border border-white/30 shadow-[0_8px_40px_rgba(0,0,0,0.06),0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-1px_0_rgba(255,255,255,0.15)] focus-within:shadow-[0_12px_48px_rgba(59,130,246,0.1),0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.9),inset_0_-1px_0_rgba(255,255,255,0.3)] focus-within:bg-white/30 focus-within:border-white/50">
         <input
           ref={inputRef}
           type="text"
@@ -32,7 +32,7 @@ export function PromptBar({ onSubmit, isGenerating, onCancel }: PromptBarProps) 
             if (e.key === "Escape" && isGenerating) onCancel?.();
           }}
           placeholder="Describe a design..."
-          className="flex-1 px-3 py-1 text-[15px] text-gray-800 placeholder-gray-400/70 bg-transparent outline-none"
+          className="flex-1 px-3 py-2 text-[15px] text-gray-800 placeholder-gray-400/70 bg-transparent outline-none"
         />
         {isGenerating ? (
           <button
