@@ -336,7 +336,6 @@ export default function Home() {
         onMouseMove={canvas.onMouseMove}
         onMouseUp={canvas.onMouseUp}
         onMouseLeave={canvas.onMouseUp}
-        onWheel={canvas.onWheel}
       >
         {/* Transform layer — only this moves/scales */}
         <div
