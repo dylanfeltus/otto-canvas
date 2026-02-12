@@ -9,13 +9,11 @@ export interface Settings {
 
 const STORAGE_KEY = "designbuddy-settings";
 
-const DEFAULT_MODEL = "claude-sonnet-4-5-20250514";
+const DEFAULT_MODEL = "claude-opus-4-20250514";
 
 export const MODELS = [
-  { id: "claude-opus-4-0626", label: "Opus 4.6", desc: "Best quality, slower" },
-  { id: "claude-opus-4-20250514", label: "Opus 4", desc: "High quality" },
-  { id: "claude-sonnet-4-5-20250514", label: "Sonnet 4.5", desc: "Fast + good" },
-  { id: "claude-sonnet-4-20250514", label: "Sonnet 4", desc: "Fastest" },
+  { id: "claude-opus-4-20250514", label: "Opus 4", desc: "Best quality, slower" },
+  { id: "claude-sonnet-4-20250514", label: "Sonnet 4", desc: "Fast + good" },
 ] as const;
 
 export function useSettings() {

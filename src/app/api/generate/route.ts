@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 
-const DEFAULT_MODEL = "claude-opus-4-0626";
+const DEFAULT_MODEL = "claude-opus-4-20250514";
 
 function getClient(apiKey?: string): Anthropic {
   if (apiKey) return new Anthropic({ apiKey });
