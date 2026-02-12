@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 
+export const maxDuration = 60;
+
 const DEFAULT_MODEL = "claude-opus-4-20250514";
 
 function getClient(apiKey?: string): Anthropic {
