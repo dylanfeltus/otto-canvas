@@ -1,6 +1,6 @@
-# Otto Canvas
+# Canvas by Otto
 
-An open-source AI design tool. Describe what you want, get multiple design variations on an infinite canvas, then click to refine.
+An open-source AI design tool by [Otto](https://otto.design). Describe what you want, get multiple design variations on an infinite canvas, then click to refine.
 
 **Vibe coding, but for design.**
 
@@ -23,8 +23,8 @@ An open-source AI design tool. Describe what you want, get multiple design varia
 
 ```bash
 # Clone the repo
-git clone https://github.com/stratuslabs/designbuddy-canvas.git
-cd designbuddy-canvas
+git clone https://github.com/dylanfeltus/otto-canvas.git
+cd otto-canvas
 
 # Install dependencies
 npm install
