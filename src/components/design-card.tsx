@@ -10,6 +10,8 @@ interface DesignCardProps {
   onAddComment: (iterationId: string, position: Point) => void;
   onClickComment: (comment: CommentType) => void;
   scale: number;
+  apiKey?: string;
+  model?: string;
 }
 
 export function DesignCard({
@@ -18,6 +20,8 @@ export function DesignCard({
   onAddComment,
   onClickComment,
   scale,
+  apiKey,
+  model,
 }: DesignCardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const shadowRef = useRef<ShadowRoot | null>(null);
@@ -81,7 +85,7 @@ export function DesignCard({
         )}
         {!iteration.isLoading && iteration.html && (
           <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-            <ExportMenu html={iteration.html} label={iteration.label} />
+            <ExportMenu html={iteration.html} label={iteration.label} apiKey={apiKey} model={model} />
           </div>
         )}
       </div>

@@ -1,7 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 
-const client = new Anthropic();
+const DEFAULT_MODEL = "claude-sonnet-4-5-20250514";
+
+function getClient(apiKey?: string): Anthropic {
+  if (apiKey) return new Anthropic({ apiKey });
+  return new Anthropic();
+}
 
 const VARIATION_STYLES = [
   "Clean and minimal — lots of whitespace, simple typography, subtle colors",
@@ -13,47 +18,43 @@ const VARIATION_STYLES = [
 
 export async function POST(req: NextRequest) {
   try {
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error("ANTHROPIC_API_KEY not set");
-      return NextResponse.json({ error: "API key not configured" }, { status: 500 });
-    }
-
-    const { prompt, count = 4, revision, existingHtml } = await req.json();
+    const { prompt, count = 4, revision, existingHtml, apiKey, model } = await req.json();
 
     if (!prompt) {
       return NextResponse.json({ error: "Prompt required" }, { status: 400 });
     }
 
-    // If this is a revision, only generate 1 updated version
+    const client = getClient(apiKey);
+    const useModel = model || DEFAULT_MODEL;
+
     if (revision && existingHtml) {
-      const result = await generateSingle(prompt, revision, existingHtml);
+      const result = await generateSingle(client, useModel, prompt, revision, existingHtml);
       return NextResponse.json({ iterations: [result] });
     }
 
-    // Generate multiple variations in parallel
     const variations = VARIATION_STYLES.slice(0, count);
     const results = await Promise.all(
-      variations.map((style, i) => generateVariation(prompt, style, i))
+      variations.map((style, i) => generateVariation(client, useModel, prompt, style, i))
     );
 
     return NextResponse.json({ iterations: results });
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    console.error("Generation error:", errMsg, err);
-    return NextResponse.json(
-      { error: `Generation failed: ${errMsg}` },
-      { status: 500 }
-    );
+  } catch (err: unknown) {
+    console.error("Generation error:", err);
+    const message = err instanceof Error ? err.message : "Failed to generate designs";
+    const status = message.includes("auth") || message.includes("API key") ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }
 
 async function generateVariation(
+  client: Anthropic,
+  model: string,
   prompt: string,
   style: string,
   index: number
 ): Promise<{ html: string; label: string }> {
   const message = await client.messages.create({
-    model: "claude-opus-4-0626",
+    model,
     max_tokens: 4096,
     messages: [
       {
@@ -89,12 +90,14 @@ IMPORTANT RULES:
 }
 
 async function generateSingle(
+  client: Anthropic,
+  model: string,
   originalPrompt: string,
   revision: string,
   existingHtml: string
 ): Promise<{ html: string; label: string }> {
   const message = await client.messages.create({
-    model: "claude-opus-4-0626",
+    model,
     max_tokens: 4096,
     messages: [
       {
@@ -128,7 +131,6 @@ IMPORTANT RULES:
 }
 
 function cleanHtml(html: string): string {
-  // Strip markdown code fences if present
   let cleaned = html.trim();
   if (cleaned.startsWith("```")) {
     cleaned = cleaned.replace(/^```(?:html)?\n?/, "").replace(/\n?```$/, "");

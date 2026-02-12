@@ -1,45 +1,52 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 
-const client = new Anthropic();
+const DEFAULT_MODEL = "claude-sonnet-4-5-20250514";
+
+function getClient(apiKey?: string): Anthropic {
+  if (apiKey) return new Anthropic({ apiKey });
+  return new Anthropic();
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const { html, format } = await req.json();
+    const { html, format, apiKey, model } = await req.json();
 
     if (!html || !format) {
       return NextResponse.json({ error: "html and format required" }, { status: 400 });
     }
+
+    const client = getClient(apiKey);
+    const useModel = model || DEFAULT_MODEL;
 
     switch (format) {
       case "svg":
         return NextResponse.json({ result: htmlToSvg(html) });
 
       case "tailwind":
-        return NextResponse.json({ result: await convertWithAI(html, TAILWIND_PROMPT) });
+        return NextResponse.json({ result: await convertWithAI(client, useModel, html, TAILWIND_PROMPT) });
 
       case "react":
-        return NextResponse.json({ result: await convertWithAI(html, REACT_PROMPT) });
+        return NextResponse.json({ result: await convertWithAI(client, useModel, html, REACT_PROMPT) });
 
       default:
         return NextResponse.json({ error: "Invalid format" }, { status: 400 });
     }
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("Export error:", err);
-    return NextResponse.json({ error: "Export failed" }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Export failed";
+    const status = message.includes("auth") || message.includes("API key") ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }
 
 function htmlToSvg(html: string): string {
-  // Extract inline styles and body content for sizing hints
   const widthMatch = html.match(/width\s*:\s*(\d+)px/);
   const heightMatch = html.match(/height\s*:\s*(\d+)px/);
   const width = widthMatch ? parseInt(widthMatch[1]) : 800;
   const height = heightMatch ? parseInt(heightMatch[1]) : 600;
 
-  // Escape for XML embedding
-  const escaped = html
-    .replace(/&(?!amp;|lt;|gt;|quot;|apos;)/g, "&amp;")
+  const escaped = html.replace(/&(?!amp;|lt;|gt;|quot;|apos;)/g, "&amp;");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
@@ -60,7 +67,6 @@ RULES:
 - Use Tailwind v3 syntax
 - Preserve the exact same visual appearance
 - Keep the same HTML structure
-- Use responsive utilities where appropriate
 - For custom colors, use arbitrary value syntax like bg-[#hex]
 - For custom spacing, use arbitrary values like p-[20px] only when standard Tailwind values don't match`;
 
@@ -75,12 +81,11 @@ RULES:
 - Use TypeScript syntax (React.FC)
 - Use self-closing tags where appropriate
 - Make it a clean, production-ready component
-- For any interactive elements, add appropriate onClick handlers as comments
 - Import React at the top`;
 
-async function convertWithAI(html: string, systemPrompt: string): Promise<string> {
+async function convertWithAI(client: Anthropic, model: string, html: string, systemPrompt: string): Promise<string> {
   const message = await client.messages.create({
-    model: "claude-sonnet-4-5-20250514",
+    model,
     max_tokens: 4096,
     messages: [
       {
@@ -92,7 +97,6 @@ async function convertWithAI(html: string, systemPrompt: string): Promise<string
 
   let result = message.content[0].type === "text" ? message.content[0].text : "";
 
-  // Strip markdown fences if present
   result = result.trim();
   if (result.startsWith("```")) {
     result = result.replace(/^```(?:html|tsx|jsx|typescript)?\n?/, "").replace(/\n?```$/, "");

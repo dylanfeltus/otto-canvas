@@ -7,6 +7,8 @@ type ExportFormat = "svg" | "tailwind" | "react";
 interface ExportMenuProps {
   html: string;
   label: string;
+  apiKey?: string;
+  model?: string;
 }
 
 const FORMATS: { id: ExportFormat; label: string; icon: string; ext: string }[] = [
@@ -15,7 +17,7 @@ const FORMATS: { id: ExportFormat; label: string; icon: string; ext: string }[] 
   { id: "react", label: "React", icon: "⚛", ext: "tsx" },
 ];
 
-export function ExportMenu({ html, label }: ExportMenuProps) {
+export function ExportMenu({ html, label, apiKey, model }: ExportMenuProps) {
   const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
   const [preview, setPreview] = useState<{ format: ExportFormat; code: string } | null>(null);
@@ -43,7 +45,7 @@ export function ExportMenu({ html, label }: ExportMenuProps) {
         const res = await fetch("/api/export", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ html, format }),
+          body: JSON.stringify({ html, format, apiKey, model }),
         });
 
         if (!res.ok) throw new Error("Export failed");

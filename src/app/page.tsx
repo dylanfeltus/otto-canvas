@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCanvas } from "@/hooks/use-canvas";
+import { useSettings } from "@/hooks/use-settings";
 import { DesignCard } from "@/components/design-card";
 import { PromptBar } from "@/components/prompt-bar";
 import { Toolbar } from "@/components/toolbar";
 import { CommentInput } from "@/components/comment-input";
+import { SettingsModal } from "@/components/settings-modal";
 import type {
   DesignIteration,
   GenerationGroup,
@@ -16,11 +18,13 @@ import type {
 
 export default function Home() {
   const canvas = useCanvas();
+  const { settings, setSettings, isOwnKey } = useSettings();
   const canvasRef = useRef<HTMLDivElement>(null);
   const [groups, setGroups] = useState<GenerationGroup[]>([]);
   const [toolMode, setToolMode] = useState<ToolMode>("select");
   const [isGenerating, setIsGenerating] = useState(false);
   const [spaceHeld, setSpaceHeld] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [commentDraft, setCommentDraft] = useState<{
     iterationId: string;
     position: Point;
@@ -142,7 +146,7 @@ export default function Home() {
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt, count: iterationCount }),
+          body: JSON.stringify({ prompt, count: iterationCount, apiKey: settings.apiKey || undefined, model: settings.model }),
         });
 
         if (!res.ok) throw new Error("Generation failed");
@@ -263,6 +267,8 @@ export default function Home() {
               prompt: (targetIteration as DesignIteration).prompt,
               revision: text,
               existingHtml: (targetIteration as DesignIteration).html,
+              apiKey: settings.apiKey || undefined,
+              model: settings.model,
             }),
           });
 
@@ -342,6 +348,8 @@ export default function Home() {
               onAddComment={handleAddComment}
               onClickComment={handleClickComment}
               scale={canvas.scale}
+              apiKey={settings.apiKey || undefined}
+              model={settings.model}
             />
           ))}
         </div>
@@ -369,6 +377,9 @@ export default function Home() {
         onZoomIn={canvas.zoomIn}
         onZoomOut={canvas.zoomOut}
         onResetView={canvas.resetView}
+        onOpenSettings={() => setShowSettings(true)}
+        isOwnKey={isOwnKey}
+        model={settings.model}
       />
 
       <PromptBar onSubmit={handleGenerate} isGenerating={isGenerating} />
@@ -404,6 +415,16 @@ export default function Home() {
           </div>
           <p className="text-[13px] text-gray-700 leading-relaxed">{activeComment.text}</p>
         </div>
+      )}
+
+      {/* Settings modal */}
+      {showSettings && (
+        <SettingsModal
+          settings={settings}
+          onUpdate={setSettings}
+          onClose={() => setShowSettings(false)}
+          isOwnKey={isOwnKey}
+        />
       )}
     </div>
   );
