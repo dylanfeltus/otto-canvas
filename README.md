@@ -1,4 +1,4 @@
-# DesignBuddy Canvas
+# Otto Canvas
 
 An open-source AI design tool. Describe what you want, get multiple design variations on an infinite canvas, then click to refine.
 

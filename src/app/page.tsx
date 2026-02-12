@@ -444,7 +444,7 @@ export default function Home() {
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <div className="text-center">
               <h1 className="text-2xl font-semibold text-gray-300 mb-2">
-                DesignBuddy Canvas
+                Otto Canvas
               </h1>
               <p className="text-gray-400/70 text-sm">
                 Type a prompt below to generate designs

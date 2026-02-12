@@ -7,8 +7,8 @@ export interface Settings {
   model: string;
 }
 
-const STORAGE_KEY = "designbuddy-settings";
-const PROBE_CACHE_KEY = "designbuddy-model-probe";
+const STORAGE_KEY = "otto-settings";
+const PROBE_CACHE_KEY = "otto-model-probe";
 const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 
 export const MODELS = [
