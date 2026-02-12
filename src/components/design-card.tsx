@@ -5,6 +5,7 @@ import type { DesignIteration, Comment as CommentType, Point } from "@/lib/types
 import { ExportMenu } from "./export-menu";
 
 const FRAME_WIDTH = 480;
+const INITIAL_IFRAME_HEIGHT = 2000; // Start tall, measure down
 
 interface DesignCardProps {
   iteration: DesignIteration;
@@ -34,61 +35,60 @@ export function DesignCard({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState(320);
+  const measuredRef = useRef(false);
 
   useEffect(() => {
     if (!iteration.html || iteration.isLoading) return;
     const iframe = iframeRef.current;
     if (!iframe) return;
 
+    measuredRef.current = false;
+
+    // Write content with a tall body so nothing clips during measurement
     const doc = iframe.contentDocument;
     if (!doc) return;
 
     doc.open();
     doc.write(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
-  html, body { margin: 0; padding: 0; background: white; }
-  body { width: ${FRAME_WIDTH}px; overflow-x: hidden; }
+  html { height: auto; }
+  body { margin: 0; padding: 0; background: white; width: ${FRAME_WIDTH}px; overflow-x: hidden; overflow-y: hidden; min-height: 100px; }
 </style></head><body>${iteration.html}</body></html>`);
     doc.close();
 
     const measure = () => {
       try {
-        if (!doc.body) return;
+        const d = iframe.contentDocument;
+        if (!d?.documentElement) return;
+        // Read the true content height
         const h = Math.max(
-          doc.body.scrollHeight,
-          doc.documentElement.scrollHeight,
-          doc.body.offsetHeight,
+          d.documentElement.scrollHeight,
+          d.body?.scrollHeight ?? 0,
+          d.body?.offsetHeight ?? 0,
           100
         );
-        setContentHeight(h);
+        setContentHeight(h + 20); // 20px buffer
+        measuredRef.current = true;
       } catch {}
     };
 
-    // Measure multiple passes — no animation, just set height
+    // iframe load event
+    const onLoad = () => measure();
+    iframe.addEventListener("load", onLoad);
+
+    // Also measure on multiple delays to catch fonts/images
     measure();
-    const t1 = setTimeout(measure, 80);
-    const t2 = setTimeout(measure, 300);
-    const t3 = setTimeout(measure, 800);
-    const t4 = setTimeout(measure, 1500);
-
-    let ro: ResizeObserver | null = null;
-    try {
-      if (doc.body) {
-        ro = new ResizeObserver(measure);
-        ro.observe(doc.body);
-      }
-    } catch {}
-
-    const imgs = doc.querySelectorAll("img");
-    imgs.forEach((img) => img.addEventListener("load", measure));
+    const t1 = setTimeout(measure, 100);
+    const t2 = setTimeout(measure, 500);
+    const t3 = setTimeout(measure, 1000);
+    const t4 = setTimeout(measure, 2000);
 
     return () => {
+      iframe.removeEventListener("load", onLoad);
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
       clearTimeout(t4);
-      ro?.disconnect();
-      imgs.forEach((img) => img.removeEventListener("load", measure));
     };
   }, [iteration.html, iteration.isLoading]);
 
@@ -115,7 +115,7 @@ export function DesignCard({
         width: FRAME_WIDTH,
       }}
     >
-      {/* Label + export — use group on a hover wrapper */}
+      {/* Label + export */}
       <div className="mb-2 flex items-center gap-2 group/label">
         <span className="text-xs font-medium text-gray-500/80 bg-white/60 backdrop-blur-sm px-2.5 py-0.5 rounded-lg border border-white/40">
           {iteration.label}
@@ -135,33 +135,37 @@ export function DesignCard({
         )}
       </div>
 
-      {/* Frame — fixed width, measured height, NO transitions on dimensions */}
+      {/* Frame — fixed width, NO transitions on any dimension */}
       <div
         ref={wrapperRef}
         onClick={handleClick}
         onMouseDown={isSelectMode ? onDragStart : undefined}
-        className={`relative bg-white rounded-xl shadow-md border border-gray-200/80 ${
+        className={`relative bg-white rounded-xl shadow-md border border-gray-200/80 overflow-hidden ${
           isCommentMode
             ? "cursor-crosshair ring-2 ring-blue-400/20 hover:ring-blue-400/40"
             : isSelectMode
             ? isDragging ? "cursor-grabbing shadow-xl ring-2 ring-blue-400/30" : "cursor-grab"
             : ""
         } ${iteration.isRegenerating ? "opacity-60" : ""}`}
-        style={{
-          width: FRAME_WIDTH,
-          height: frameHeight,
-          overflow: "visible",
-        }}
+        style={{ width: FRAME_WIDTH, height: frameHeight }}
       >
         {iteration.isLoading ? (
-          <LoadingSkeleton />
+          <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+            <div className="loading-spinner" />
+            <span className="text-[12px] font-medium text-gray-400">Generating...</span>
+          </div>
         ) : (
           <iframe
             ref={iframeRef}
             title={iteration.label}
             sandbox="allow-same-origin"
-            className="border-0 pointer-events-none rounded-xl"
-            style={{ width: FRAME_WIDTH, height: frameHeight, display: "block" }}
+            style={{
+              width: FRAME_WIDTH,
+              height: measuredRef.current ? contentHeight : INITIAL_IFRAME_HEIGHT,
+              border: "none",
+              display: "block",
+              pointerEvents: "none",
+            }}
           />
         )}
 
@@ -179,22 +183,6 @@ export function DesignCard({
 }
 
 export { FRAME_WIDTH };
-
-function LoadingSkeleton() {
-  return (
-    <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-8">
-      <div className="w-full space-y-3">
-        <div className="shimmer h-5 rounded-lg w-2/3" />
-        <div className="shimmer h-3.5 rounded-lg w-full" style={{ animationDelay: "0.1s" }} />
-        <div className="shimmer h-3.5 rounded-lg w-5/6" style={{ animationDelay: "0.2s" }} />
-        <div className="shimmer h-24 rounded-xl w-full mt-2" style={{ animationDelay: "0.15s" }} />
-        <div className="shimmer h-3.5 rounded-lg w-4/6" style={{ animationDelay: "0.25s" }} />
-        <div className="shimmer h-3.5 rounded-lg w-3/6" style={{ animationDelay: "0.3s" }} />
-      </div>
-      <span className="text-[11px] font-medium text-gray-400 mt-2">Generating...</span>
-    </div>
-  );
-}
 
 function CommentPin({
   comment,

@@ -76,46 +76,43 @@ export default function Home() {
     };
   }, []);
 
-  // 2x2 grid layout with fixed frame width
-  const H_GAP = 40;
-  const V_GAP = 60;
-  const GROUP_GAP = 80; // vertical gap between generation groups
-  const ESTIMATED_FRAME_HEIGHT = 400; // for initial placement before content loads
+  // Fixed 2x2 grid positioning
+  // Positions are calculated ONCE per generation and never change
+  const H_GAP = 60;  // horizontal gap between frames
+  const V_GAP = 80;  // vertical gap between rows in same generation
+  const GROUP_GAP = 120; // vertical gap between generation groups
+  const ROW_HEIGHT = 500; // estimated height per row (generous)
   const COLS = 2;
+  const GRID_WIDTH = COLS * FRAME_WIDTH + (COLS - 1) * H_GAP; // 480 + 60 + 480 = 1020
+
+  // Track the lowest Y of all placed groups for stacking
+  const lowestYRef = useRef(0);
 
   const getGridPositions = useCallback(
     (count: number): Point[] => {
       const vw = window.innerWidth;
-      const gridWidth = COLS * FRAME_WIDTH + (COLS - 1) * H_GAP;
-
-      // Find the bottom of all existing iterations
-      let maxBottom = 0;
-      if (groups.length > 0) {
-        for (const g of groups) {
-          for (const iter of g.iterations) {
-            const bottom = iter.position.y + ESTIMATED_FRAME_HEIGHT + 30; // +30 for label
-            maxBottom = Math.max(maxBottom, bottom);
-          }
-        }
-      }
 
       let startX: number;
       let startY: number;
 
       if (groups.length === 0) {
         // First generation — center in viewport
-        startX = (vw / 2 - canvas.offset.x) / canvas.scale - gridWidth / 2;
-        startY = (120 - canvas.offset.y) / canvas.scale;
+        startX = (vw / 2 - canvas.offset.x) / canvas.scale - GRID_WIDTH / 2;
+        startY = (100 - canvas.offset.y) / canvas.scale;
+        lowestYRef.current = 0;
       } else {
-        // Subsequent generations — place below existing with clear gap
-        const firstGroup = groups[0];
-        startX = firstGroup.iterations[0]?.position.x ?? 0;
-        startY = maxBottom + GROUP_GAP;
+        // Subsequent — align X with first group, Y below everything
+        startX = groups[0].iterations[0]?.position.x ?? 0;
+        startY = lowestYRef.current + GROUP_GAP;
       }
+
+      const rows = Math.ceil(count / COLS);
+      // Update lowestY for next generation
+      lowestYRef.current = startY + rows * (ROW_HEIGHT + V_GAP);
 
       return Array.from({ length: count }, (_, i) => ({
         x: startX + (i % COLS) * (FRAME_WIDTH + H_GAP),
-        y: startY + Math.floor(i / COLS) * (ESTIMATED_FRAME_HEIGHT + V_GAP),
+        y: startY + Math.floor(i / COLS) * (ROW_HEIGHT + V_GAP),
       }));
     },
     [canvas.offset, canvas.scale, groups]

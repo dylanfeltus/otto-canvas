@@ -27,19 +27,16 @@ html, body {
   background-size: 24px 24px;
 }
 
-/* Shimmer loading animation */
-.shimmer {
-  background: linear-gradient(
-    90deg,
-    #f0f0f0 25%,
-    #e8e8e8 37%,
-    #f0f0f0 63%
-  );
-  background-size: 400% 100%;
-  animation: shimmer 1.8s ease-in-out infinite;
+/* Clean loading spinner */
+.loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #9ca3af;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
-@keyframes shimmer {
-  0% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

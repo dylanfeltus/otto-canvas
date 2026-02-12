@@ -32,7 +32,7 @@ export function PromptBar({ onSubmit, isGenerating, onCancel }: PromptBarProps) 
             if (e.key === "Escape" && isGenerating) onCancel?.();
           }}
           placeholder="Describe a design..."
-          className="flex-1 px-3 py-2 text-[15px] text-gray-800 placeholder-gray-400/70 bg-transparent outline-none"
+          className="flex-1 px-4 py-2 text-[15px] text-gray-800 placeholder-gray-400/70 bg-transparent outline-none"
         />
         {isGenerating ? (
           <button
