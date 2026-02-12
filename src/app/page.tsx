@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type RefCallback } from "react";
 import { useCanvas } from "@/hooks/use-canvas";
 import { useSettings } from "@/hooks/use-settings";
-import { DesignCard } from "@/components/design-card";
+import { DesignCard, FRAME_WIDTH } from "@/components/design-card";
 import { PromptBar } from "@/components/prompt-bar";
 import { Toolbar } from "@/components/toolbar";
 import { CommentInput } from "@/components/comment-input";
@@ -76,52 +76,49 @@ export default function Home() {
     };
   }, []);
 
-  // Calculate positions that fit ALL iterations in the current viewport
-  const getViewportFittedPositions = useCallback(
+  // 2x2 grid layout with fixed frame width
+  const H_GAP = 40;
+  const V_GAP = 60;
+  const GROUP_GAP = 80; // vertical gap between generation groups
+  const ESTIMATED_FRAME_HEIGHT = 400; // for initial placement before content loads
+  const COLS = 2;
+
+  const getGridPositions = useCallback(
     (count: number): Point[] => {
       const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const cardWidth = 400;
-      const gap = 40;
-      const totalWidth = count * cardWidth + (count - 1) * gap;
+      const gridWidth = COLS * FRAME_WIDTH + (COLS - 1) * H_GAP;
 
-      // If total width fits in viewport, lay out in a row centered
-      // Otherwise, do a 2-column grid
-      const padding = 80; // breathing room from edges
-      const availableWidth = vw - padding * 2;
-      const availableHeight = vh - padding * 2 - 120; // room for prompt bar
-
-      let positions: Point[];
-
-      if (totalWidth <= availableWidth / canvas.scale) {
-        // Single row, centered in viewport
-        const startX =
-          (vw / 2 - canvas.offset.x) / canvas.scale - totalWidth / 2;
-        const centerY =
-          (vh / 2 - canvas.offset.y - 60) / canvas.scale - 150;
-
-        positions = Array.from({ length: count }, (_, i) => ({
-          x: startX + i * (cardWidth + gap),
-          y: centerY,
-        }));
-      } else {
-        // 2-column grid
-        const cols = 2;
-        const gridWidth = cols * cardWidth + (cols - 1) * gap;
-        const startX =
-          (vw / 2 - canvas.offset.x) / canvas.scale - gridWidth / 2;
-        const startY =
-          (padding - canvas.offset.y) / canvas.scale;
-
-        positions = Array.from({ length: count }, (_, i) => ({
-          x: startX + (i % cols) * (cardWidth + gap),
-          y: startY + Math.floor(i / cols) * (380 + gap),
-        }));
+      // Find the bottom of all existing iterations
+      let maxBottom = 0;
+      if (groups.length > 0) {
+        for (const g of groups) {
+          for (const iter of g.iterations) {
+            const bottom = iter.position.y + ESTIMATED_FRAME_HEIGHT + 30; // +30 for label
+            maxBottom = Math.max(maxBottom, bottom);
+          }
+        }
       }
 
-      return positions;
+      let startX: number;
+      let startY: number;
+
+      if (groups.length === 0) {
+        // First generation — center in viewport
+        startX = (vw / 2 - canvas.offset.x) / canvas.scale - gridWidth / 2;
+        startY = (120 - canvas.offset.y) / canvas.scale;
+      } else {
+        // Subsequent generations — place below existing with clear gap
+        const firstGroup = groups[0];
+        startX = firstGroup.iterations[0]?.position.x ?? 0;
+        startY = maxBottom + GROUP_GAP;
+      }
+
+      return Array.from({ length: count }, (_, i) => ({
+        x: startX + (i % COLS) * (FRAME_WIDTH + H_GAP),
+        y: startY + Math.floor(i / COLS) * (ESTIMATED_FRAME_HEIGHT + V_GAP),
+      }));
     },
-    [canvas.offset, canvas.scale]
+    [canvas.offset, canvas.scale, groups]
   );
 
   const handleGenerate = useCallback(
@@ -129,7 +126,7 @@ export default function Home() {
       setIsGenerating(true);
       const groupId = `group-${Date.now()}`;
       const iterationCount = 4;
-      const positions = getViewportFittedPositions(iterationCount);
+      const positions = getGridPositions(iterationCount);
 
       // Create placeholder iterations
       const placeholders: DesignIteration[] = Array.from(
@@ -219,7 +216,7 @@ export default function Home() {
         setIsGenerating(false);
       }
     },
-    [getViewportFittedPositions]
+    [getGridPositions]
   );
 
   const handleAddComment = useCallback(

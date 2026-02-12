@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DesignIteration, Comment as CommentType, Point } from "@/lib/types";
 import { ExportMenu } from "./export-menu";
+
+const FRAME_WIDTH = 480;
 
 interface DesignCardProps {
   iteration: DesignIteration;
@@ -31,19 +33,7 @@ export function DesignCard({
 }: DesignCardProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ width: 420, height: 320 });
-
-  const measureIframe = useCallback(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-    try {
-      const doc = iframe.contentDocument;
-      if (!doc?.body) return;
-      const w = Math.max(doc.body.scrollWidth, doc.documentElement.scrollWidth, 200);
-      const h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight, 80);
-      setSize({ width: Math.min(w + 2, 900), height: h + 2 });
-    } catch {}
-  }, []);
+  const [contentHeight, setContentHeight] = useState(320);
 
   useEffect(() => {
     if (!iteration.html || iteration.isLoading) return;
@@ -53,24 +43,34 @@ export function DesignCard({
     const doc = iframe.contentDocument;
     if (!doc) return;
 
-    // Write content into iframe
     doc.open();
     doc.write(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
-  html, body { margin: 0; padding: 0; overflow: hidden; background: white; }
-  body { width: max-content; min-width: 200px; }
+  html, body { margin: 0; padding: 0; background: white; }
+  body { width: ${FRAME_WIDTH}px; overflow-x: hidden; }
 </style></head><body>${iteration.html}</body></html>`);
     doc.close();
 
-    // Measure after load + multiple passes for fonts/images
-    const measure = () => measureIframe();
-    measure();
-    setTimeout(measure, 50);
-    setTimeout(measure, 200);
-    setTimeout(measure, 600);
-    setTimeout(measure, 1200);
+    const measure = () => {
+      try {
+        if (!doc.body) return;
+        const h = Math.max(
+          doc.body.scrollHeight,
+          doc.documentElement.scrollHeight,
+          doc.body.offsetHeight,
+          100
+        );
+        setContentHeight(h);
+      } catch {}
+    };
 
-    // ResizeObserver on body for dynamic content
+    // Measure multiple passes — no animation, just set height
+    measure();
+    const t1 = setTimeout(measure, 80);
+    const t2 = setTimeout(measure, 300);
+    const t3 = setTimeout(measure, 800);
+    const t4 = setTimeout(measure, 1500);
+
     let ro: ResizeObserver | null = null;
     try {
       if (doc.body) {
@@ -79,15 +79,18 @@ export function DesignCard({
       }
     } catch {}
 
-    // Also listen for images
     const imgs = doc.querySelectorAll("img");
     imgs.forEach((img) => img.addEventListener("load", measure));
 
     return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
       ro?.disconnect();
       imgs.forEach((img) => img.removeEventListener("load", measure));
     };
-  }, [iteration.html, iteration.isLoading, measureIframe]);
+  }, [iteration.html, iteration.isLoading]);
 
   const handleClick = (e: React.MouseEvent) => {
     if (!isCommentMode) return;
@@ -101,17 +104,19 @@ export function DesignCard({
     onAddComment(iteration.id, { x, y });
   };
 
+  const frameHeight = iteration.isLoading ? 320 : contentHeight;
+
   return (
     <div
-      className={`absolute group ${isDragging ? "z-50" : ""}`}
+      className={`absolute ${isDragging ? "z-50" : ""}`}
       style={{
         left: iteration.position.x,
         top: iteration.position.y,
-        width: size.width,
+        width: FRAME_WIDTH,
       }}
     >
-      {/* Label + export */}
-      <div className="mb-2 flex items-center gap-2">
+      {/* Label + export — use group on a hover wrapper */}
+      <div className="mb-2 flex items-center gap-2 group/label">
         <span className="text-xs font-medium text-gray-500/80 bg-white/60 backdrop-blur-sm px-2.5 py-0.5 rounded-lg border border-white/40">
           {iteration.label}
         </span>
@@ -124,25 +129,29 @@ export function DesignCard({
           </span>
         )}
         {!iteration.isLoading && iteration.html && (
-          <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="ml-auto opacity-0 group-hover/label:opacity-100 transition-opacity">
             <ExportMenu html={iteration.html} label={iteration.label} apiKey={apiKey} model={model} />
           </div>
         )}
       </div>
 
-      {/* Design render area */}
+      {/* Frame — fixed width, measured height, NO transitions on dimensions */}
       <div
         ref={wrapperRef}
         onClick={handleClick}
         onMouseDown={isSelectMode ? onDragStart : undefined}
-        className={`relative bg-white rounded-xl shadow-md border border-gray-200/80 transition-shadow ${
+        className={`relative bg-white rounded-xl shadow-md border border-gray-200/80 ${
           isCommentMode
-            ? "cursor-crosshair ring-2 ring-blue-400/20 hover:ring-blue-400/40 hover:shadow-lg"
+            ? "cursor-crosshair ring-2 ring-blue-400/20 hover:ring-blue-400/40"
             : isSelectMode
-            ? isDragging ? "cursor-grabbing shadow-xl ring-2 ring-blue-400/30" : "cursor-grab hover:shadow-lg"
-            : "cursor-default hover:shadow-lg"
+            ? isDragging ? "cursor-grabbing shadow-xl ring-2 ring-blue-400/30" : "cursor-grab"
+            : ""
         } ${iteration.isRegenerating ? "opacity-60" : ""}`}
-        style={{ width: size.width, height: iteration.isLoading ? 320 : size.height, overflow: "hidden" }}
+        style={{
+          width: FRAME_WIDTH,
+          height: frameHeight,
+          overflow: "visible",
+        }}
       >
         {iteration.isLoading ? (
           <LoadingSkeleton />
@@ -151,8 +160,8 @@ export function DesignCard({
             ref={iframeRef}
             title={iteration.label}
             sandbox="allow-same-origin"
-            className="w-full h-full border-0 pointer-events-none rounded-xl"
-            style={{ width: size.width, height: size.height }}
+            className="border-0 pointer-events-none rounded-xl"
+            style={{ width: FRAME_WIDTH, height: frameHeight, display: "block" }}
           />
         )}
 
@@ -169,11 +178,11 @@ export function DesignCard({
   );
 }
 
-/** Premium loading state — animated gradient shimmer */
+export { FRAME_WIDTH };
+
 function LoadingSkeleton() {
   return (
     <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-8">
-      {/* Shimmer lines */}
       <div className="w-full space-y-3">
         <div className="shimmer h-5 rounded-lg w-2/3" />
         <div className="shimmer h-3.5 rounded-lg w-full" style={{ animationDelay: "0.1s" }} />
