@@ -7,8 +7,11 @@ import { ExportMenu } from "./export-menu";
 interface DesignCardProps {
   iteration: DesignIteration;
   isCommentMode: boolean;
+  isSelectMode: boolean;
+  isDragging: boolean;
   onAddComment: (iterationId: string, position: Point) => void;
   onClickComment: (comment: CommentType) => void;
+  onDragStart: (e: React.MouseEvent) => void;
   scale: number;
   apiKey?: string;
   model?: string;
@@ -17,8 +20,11 @@ interface DesignCardProps {
 export function DesignCard({
   iteration,
   isCommentMode,
+  isSelectMode,
+  isDragging,
   onAddComment,
   onClickComment,
+  onDragStart,
   scale,
   apiKey,
   model,
@@ -97,7 +103,7 @@ export function DesignCard({
 
   return (
     <div
-      className="absolute group"
+      className={`absolute group ${isDragging ? "z-50" : ""}`}
       style={{
         left: iteration.position.x,
         top: iteration.position.y,
@@ -128,9 +134,12 @@ export function DesignCard({
       <div
         ref={wrapperRef}
         onClick={handleClick}
-        className={`relative bg-white rounded-xl shadow-md border border-gray-200/80 transition-all ${
+        onMouseDown={isSelectMode ? onDragStart : undefined}
+        className={`relative bg-white rounded-xl shadow-md border border-gray-200/80 transition-shadow ${
           isCommentMode
             ? "cursor-crosshair ring-2 ring-blue-400/20 hover:ring-blue-400/40 hover:shadow-lg"
+            : isSelectMode
+            ? isDragging ? "cursor-grabbing shadow-xl ring-2 ring-blue-400/30" : "cursor-grab hover:shadow-lg"
             : "cursor-default hover:shadow-lg"
         } ${iteration.isRegenerating ? "opacity-60" : ""}`}
         style={{ width: size.width, height: iteration.isLoading ? 320 : size.height, overflow: "hidden" }}

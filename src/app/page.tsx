@@ -433,8 +433,11 @@ export default function Home() {
               key={iteration.id}
               iteration={iteration}
               isCommentMode={toolMode === "comment" && !spaceHeld}
+              isSelectMode={toolMode === "select" && !spaceHeld}
+              isDragging={draggingId === iteration.id}
               onAddComment={handleAddComment}
               onClickComment={handleClickComment}
+              onDragStart={(e) => handleFrameDragStart(iteration.id, e)}
               scale={canvas.scale}
               apiKey={settings.apiKey || undefined}
               model={settings.model}
