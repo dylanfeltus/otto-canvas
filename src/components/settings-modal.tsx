@@ -36,10 +36,10 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey }: Setting
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-white/60 backdrop-blur-2xl rounded-3xl border border-white/60 shadow-[0_24px_80px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.7)] w-[440px] max-w-[90vw] overflow-hidden">
+      <div className="relative bg-white/60 backdrop-blur-2xl rounded-3xl border border-white/60 shadow-[0_24px_80px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.7)] w-[480px] max-w-[90vw] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/30">
-          <h2 className="text-[15px] font-semibold text-gray-800">Settings</h2>
+        <div className="flex items-center justify-between px-8 py-5 border-b border-gray-200/30">
+          <h2 className="text-[17px] font-semibold text-gray-800">Settings</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-black/5 transition-all"
@@ -51,7 +51,7 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey }: Setting
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-6">
+        <div className="px-8 py-6 space-y-8">
           {/* API Key */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -70,7 +70,7 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey }: Setting
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
                 placeholder="sk-ant-..."
-                className="flex-1 text-[13px] text-gray-800 placeholder-gray-400/50 bg-white/70 backdrop-blur-sm rounded-xl px-4 py-2.5 outline-none border border-white/50 focus:border-blue-300/60 focus:bg-white/90 transition-all font-mono"
+                className="flex-1 text-[14px] text-gray-800 placeholder-gray-400/50 bg-white/70 backdrop-blur-sm rounded-xl px-4 py-3 outline-none border border-white/50 focus:border-blue-300/60 focus:bg-white/90 transition-all font-mono"
               />
               {key && key !== settings.apiKey && (
                 <button
@@ -99,12 +99,12 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey }: Setting
             <label className="text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-2 block">
               Model
             </label>
-            <div className="space-y-1">
+            <div className="space-y-2">
               {MODELS.map((m) => (
                 <button
                   key={m.id}
                   onClick={() => onUpdate({ model: m.id })}
-                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-left transition-all ${
+                  className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-left transition-all ${
                     settings.model === m.id
                       ? "bg-blue-500/10 border border-blue-300/40 text-gray-800"
                       : "bg-white/40 border border-transparent hover:bg-white/60 text-gray-600"
@@ -126,7 +126,7 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey }: Setting
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200/30 flex items-center justify-between">
+        <div className="px-8 py-5 border-t border-gray-200/30 flex items-center justify-between">
           <span className="text-[11px] text-gray-400">
             {isOwnKey ? "🔑 Own key" : "🌐 Demo key"} · {MODELS.find((m) => m.id === settings.model)?.label}
           </span>
