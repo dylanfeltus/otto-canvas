@@ -19,7 +19,7 @@ import type {
 
 export default function Home() {
   const canvas = useCanvas();
-  const { settings, setSettings, isOwnKey } = useSettings();
+  const { settings, setSettings, isOwnKey, availableModels, isProbing } = useSettings();
   const canvasRef = useRef<HTMLDivElement>(null);
   const [groups, setGroups] = useState<GenerationGroup[]>([]);
   const [toolMode, setToolMode] = useState<ToolMode>("select");
@@ -437,6 +437,8 @@ export default function Home() {
           onUpdate={setSettings}
           onClose={() => setShowSettings(false)}
           isOwnKey={isOwnKey}
+          availableModels={availableModels}
+          isProbing={isProbing}
         />
       )}
     </div>
