@@ -1,39 +1,74 @@
 # DesignBuddy Canvas
 
-AI design tool with an infinite canvas. Type a prompt, get 3-5 HTML/CSS design iterations, click to comment and revise.
+An open-source AI design tool. Describe what you want, get multiple design variations on an infinite canvas, then click to refine.
 
-## Setup
+**Vibe coding, but for design.**
+
+## Features
+
+- 🎨 **Infinite Canvas** — Pan, zoom, and scroll like Figma
+- ✨ **AI Design Generation** — Describe a design, get 3-5 polished HTML/CSS variations
+- 💬 **Click-to-Comment** — Figma-style comment pins for targeted micro-revisions
+- 🧊 **Liquid Glass UI** — Frosted glass toolbar and controls
+- 📦 **Export** — Export to Figma, Tailwind CSS, or React components
+- ⌨️ **Keyboard Shortcuts** — V (select), C (comment), Space+drag (pan), Ctrl+scroll (zoom)
+
+## Use Cases
+
+- UI components (buttons, cards, navs, modals, forms)
+- Single page/screen designs (landing pages, app screens)
+- Marketing assets (social cards, banners, email headers)
+
+## Getting Started
 
 ```bash
+# Clone the repo
+git clone https://github.com/stratuslabs/designbuddy-canvas.git
+cd designbuddy-canvas
+
+# Install dependencies
 npm install
-```
 
-Add your Anthropic API key to `.env.local`:
-```
-ANTHROPIC_API_KEY=sk-ant-...
-```
+# Set your Anthropic API key
+cp .env.local.example .env.local
+# Edit .env.local and add your key
 
-```bash
+# Run dev server
 npm run dev
 ```
 
-## How It Works
+Open [http://localhost:3000](http://localhost:3000).
 
-1. Type a design prompt in the bottom bar
-2. AI generates 4 HTML/CSS variations on the canvas
-3. Pan/zoom to explore (scroll to pan, Ctrl+scroll to zoom)
-4. Switch to Comment mode (C key or toolbar)
-5. Click on a design to leave a revision comment
-6. AI regenerates that specific variation with your feedback
+## Environment Variables
 
-## Keyboard Shortcuts
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ANTHROPIC_API_KEY` | Yes | Your Anthropic API key for Claude |
 
-- **V** — Select mode
-- **C** — Comment mode
-- **Space + drag** — Pan
-- **Ctrl/⌘ + scroll** — Zoom
-- **Esc** — Cancel comment
+## Tech Stack
 
-## Stack
+- **Framework:** Next.js 14 (App Router)
+- **Styling:** Tailwind CSS
+- **Canvas:** CSS transforms + @use-gesture/react
+- **AI:** Claude (Anthropic API)
+- **Design Rendering:** Shadow DOM isolation
 
-Next.js 15 · Tailwind · Claude Sonnet · Shadow DOM rendering
+## Demo Prompts
+
+Try these to get started:
+
+- "A pricing card with 3 tiers: Starter, Pro, and Enterprise"
+- "A dark mode login form with social sign-in buttons"
+- "A hero section for a SaaS landing page"
+- "A notification toast component with success, error, and warning variants"
+- "A settings page sidebar navigation"
+
+## License
+
+MIT — see [LICENSE](LICENSE) for details.
+
+## Built With
+
+- [Claude](https://anthropic.com) by Anthropic
+- [Next.js](https://nextjs.org)
+- [Tailwind CSS](https://tailwindcss.com)

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { DesignIteration, Comment as CommentType, Point } from "@/lib/types";
+import { ExportMenu } from "./export-menu";
 
 interface DesignCardProps {
   iteration: DesignIteration;
@@ -65,7 +66,7 @@ export function DesignCard({
         width: naturalSize.width,
       }}
     >
-      {/* Label */}
+      {/* Label + export */}
       <div className="mb-2 flex items-center gap-2">
         <span className="text-xs font-medium text-gray-500/80 bg-white/60 backdrop-blur-sm px-2.5 py-0.5 rounded-lg border border-white/40">
           {iteration.label}
@@ -77,6 +78,11 @@ export function DesignCard({
             </svg>
             Revising...
           </span>
+        )}
+        {!iteration.isLoading && iteration.html && (
+          <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+            <ExportMenu html={iteration.html} label={iteration.label} />
+          </div>
         )}
       </div>
 

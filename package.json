@@ -1,7 +1,7 @@
 {
   "name": "designbuddy-canvas",
   "version": "1.0.0",
-  "description": "",
+  "description": "AI design tool with infinite canvas — vibe coding for design",
   "main": "index.js",
   "scripts": {
     "dev": "next dev",
@@ -9,8 +9,8 @@
     "start": "next start"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Stratus Labs LLC",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
