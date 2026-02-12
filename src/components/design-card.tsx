@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import type { DesignIteration, Comment as CommentType, Point } from "@/lib/types";
 import { ExportMenu } from "./export-menu";
 
@@ -25,29 +25,64 @@ export function DesignCard({
 }: DesignCardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const shadowRef = useRef<ShadowRoot | null>(null);
-  const [naturalSize, setNaturalSize] = useState({ width: 400, height: 300 });
+  const [naturalSize, setNaturalSize] = useState({ width: 420, height: 300 });
+
+  const measureContent = useCallback(() => {
+    if (!shadowRef.current) return;
+
+    // Wait for images/fonts then measure
+    const measure = () => {
+      if (!shadowRef.current) return;
+      const root = shadowRef.current.firstElementChild as HTMLElement;
+      if (!root) return;
+
+      // Force layout recalc
+      root.style.width = "max-content";
+      root.style.position = "relative";
+
+      // Walk all children to find actual bounding box
+      const allEls = shadowRef.current.querySelectorAll("*");
+      let maxW = root.offsetWidth;
+      let maxH = root.offsetHeight;
+
+      allEls.forEach((el) => {
+        const htmlEl = el as HTMLElement;
+        maxW = Math.max(maxW, htmlEl.scrollWidth, htmlEl.offsetWidth);
+        maxH = Math.max(maxH, htmlEl.scrollHeight + htmlEl.offsetTop);
+      });
+
+      // Also check root scroll dimensions
+      maxW = Math.max(maxW, root.scrollWidth);
+      maxH = Math.max(maxH, root.scrollHeight);
+
+      const w = Math.max(Math.min(maxW + 2, 900), 200);
+      const h = Math.max(Math.min(maxH + 2, 2000), 80);
+
+      setNaturalSize({ width: w, height: h });
+
+      // Reset style overrides
+      root.style.width = "";
+      root.style.position = "";
+    };
+
+    // Measure multiple times to catch late-loading content
+    requestAnimationFrame(measure);
+    setTimeout(measure, 100);
+    setTimeout(measure, 500);
+  }, []);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || !iteration.html) return;
 
     if (!shadowRef.current) {
       shadowRef.current = containerRef.current.attachShadow({ mode: "open" });
     }
 
-    shadowRef.current.innerHTML = iteration.html;
+    // Inject a reset + the generated HTML
+    shadowRef.current.innerHTML = `<style>:host { display: block; } * { box-sizing: border-box; }</style>${iteration.html}`;
 
-    // Measure content after render
-    requestAnimationFrame(() => {
-      if (shadowRef.current) {
-        const el = shadowRef.current.firstElementChild as HTMLElement;
-        if (el) {
-          const w = Math.max(el.scrollWidth, el.offsetWidth, 200);
-          const h = Math.max(el.scrollHeight, el.offsetHeight, 100);
-          setNaturalSize({ width: Math.min(w, 800), height: Math.min(h, 1200) });
-        }
-      }
-    });
-  }, [iteration.html]);
+    measureContent();
+  }, [iteration.html, measureContent]);
 
   const handleClick = (e: React.MouseEvent) => {
     if (!isCommentMode) return;
@@ -90,14 +125,17 @@ export function DesignCard({
         )}
       </div>
 
-      {/* Design render area */}
+      {/* Design render area — NO overflow:hidden so content can be measured properly */}
       <div
-        className={`relative bg-white rounded-xl shadow-md border border-gray-200/80 overflow-hidden transition-all ${
+        className={`relative bg-white rounded-xl shadow-md border border-gray-200/80 transition-all ${
           isCommentMode
             ? "cursor-crosshair ring-2 ring-blue-400/20 hover:ring-blue-400/40 hover:shadow-lg"
             : "cursor-default hover:shadow-lg"
         } ${iteration.isRegenerating ? "opacity-60" : ""}`}
-        style={{ minHeight: naturalSize.height }}
+        style={{
+          height: iteration.isLoading ? 300 : naturalSize.height,
+          overflow: "hidden",
+        }}
       >
         {iteration.isLoading ? (
           <div className="p-8 space-y-4 animate-pulse">
@@ -111,8 +149,7 @@ export function DesignCard({
           <div
             ref={containerRef}
             onClick={handleClick}
-            className="w-full"
-            style={{ minHeight: 100 }}
+            className="w-full h-full"
           />
         )}
 
@@ -151,14 +188,10 @@ function CommentPin({
         top: comment.position.y - 14,
       }}
     >
-      {/* Pulse ring for new comments */}
       {isNew && (
         <span className="absolute inset-0 rounded-full bg-blue-400/30 animate-ping" />
       )}
-      {/* Drop shadow / anchor indicator */}
-      <span
-        className="absolute left-1/2 -translate-x-1/2 top-full w-0.5 h-2 bg-blue-400/60"
-      />
+      <span className="absolute left-1/2 -translate-x-1/2 top-full w-0.5 h-2 bg-blue-400/60" />
       <button
         className="relative w-7 h-7 rounded-full bg-blue-500 text-white text-[11px] font-bold flex items-center justify-center shadow-[0_2px_8px_rgba(59,130,246,0.4)] hover:bg-blue-600 hover:scale-110 transition-all cursor-pointer border-2 border-white"
         onClick={(e) => {

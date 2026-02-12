@@ -8,6 +8,7 @@ import { PromptBar } from "@/components/prompt-bar";
 import { Toolbar } from "@/components/toolbar";
 import { CommentInput } from "@/components/comment-input";
 import { SettingsModal } from "@/components/settings-modal";
+import { PromptLibrary } from "@/components/prompt-library";
 import type {
   DesignIteration,
   GenerationGroup,
@@ -25,6 +26,7 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
   const [commentDraft, setCommentDraft] = useState<{
     iterationId: string;
     position: Point;
@@ -378,6 +380,7 @@ export default function Home() {
         onZoomOut={canvas.zoomOut}
         onResetView={canvas.resetView}
         onOpenSettings={() => setShowSettings(true)}
+        onOpenLibrary={() => setShowLibrary(true)}
         isOwnKey={isOwnKey}
         model={settings.model}
       />
@@ -416,6 +419,16 @@ export default function Home() {
           <p className="text-[13px] text-gray-700 leading-relaxed">{activeComment.text}</p>
         </div>
       )}
+
+      {/* Prompt library slide-out */}
+      <PromptLibrary
+        open={showLibrary}
+        onClose={() => setShowLibrary(false)}
+        onUsePrompt={(prompt) => {
+          setShowLibrary(false);
+          handleGenerate(prompt);
+        }}
+      />
 
       {/* Settings modal */}
       {showSettings && (

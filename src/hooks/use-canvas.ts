@@ -48,8 +48,9 @@ export function useCanvas() {
     e.preventDefault();
 
     if (e.ctrlKey || e.metaKey) {
-      // Zoom
-      const zoomFactor = e.deltaY > 0 ? 0.95 : 1.05;
+      // Zoom — clamped deltaY for smooth, Figma-like feel
+      const delta = Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 10);
+      const zoomFactor = 1 - delta * 0.008;
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
