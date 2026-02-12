@@ -28,6 +28,7 @@ export default function Home() {
   const [groups, setGroups] = useState<GenerationGroup[]>([]);
   const [toolMode, setToolMode] = useState<ToolMode>("select");
   const [isGenerating, setIsGenerating] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
@@ -149,13 +150,21 @@ export default function Home() {
       setGroups((prev) => [...prev, newGroup]);
 
       try {
+        abortRef.current?.abort();
+        const controller = new AbortController();
+        abortRef.current = controller;
+
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ prompt, count: iterationCount, apiKey: settings.apiKey || undefined, model: settings.model }),
+          signal: controller.signal,
         });
 
-        if (!res.ok) throw new Error("Generation failed");
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Generation failed");
+        }
 
         const data = await res.json();
 
@@ -173,25 +182,32 @@ export default function Home() {
             };
           })
         );
-      } catch (err) {
-        console.error("Generation failed:", err);
-        setGroups((prev) =>
-          prev.map((g) => {
-            if (g.id !== groupId) return g;
-            return {
-              ...g,
-              iterations: g.iterations.map((iter) => ({
-                ...iter,
-                html: `<div style="padding:32px;color:#666;font-family:system-ui">
-                  <p style="font-size:14px">⚠ Failed to generate design</p>
-                  <p style="font-size:12px;margin-top:8px;color:#999">Check API key or try again</p>
-                </div>`,
-                isLoading: false,
-              })),
-            };
-          })
-        );
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") {
+          // User cancelled — remove the placeholder group
+          setGroups((prev) => prev.filter((g) => g.id !== groupId));
+        } else {
+          const msg = err instanceof Error ? err.message : "Generation failed";
+          console.error("Generation failed:", msg);
+          setGroups((prev) =>
+            prev.map((g) => {
+              if (g.id !== groupId) return g;
+              return {
+                ...g,
+                iterations: g.iterations.map((iter) => ({
+                  ...iter,
+                  html: `<div style="padding:32px;color:#666;font-family:system-ui">
+                    <p style="font-size:14px">⚠ ${msg}</p>
+                    <p style="font-size:12px;margin-top:8px;color:#999">Check Settings or try again</p>
+                  </div>`,
+                  isLoading: false,
+                })),
+              };
+            })
+          );
+        }
       } finally {
+        abortRef.current = null;
         setIsGenerating(false);
       }
     },
@@ -388,7 +404,7 @@ export default function Home() {
         model={settings.model}
       />
 
-      <PromptBar onSubmit={handleGenerate} isGenerating={isGenerating} />
+      <PromptBar onSubmit={handleGenerate} isGenerating={isGenerating} onCancel={() => abortRef.current?.abort()} />
 
       {/* Comment input popover */}
       {commentDraft && (
