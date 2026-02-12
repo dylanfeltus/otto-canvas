@@ -13,6 +13,11 @@ const VARIATION_STYLES = [
 
 export async function POST(req: NextRequest) {
   try {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.error("ANTHROPIC_API_KEY not set");
+      return NextResponse.json({ error: "API key not configured" }, { status: 500 });
+    }
+
     const { prompt, count = 4, revision, existingHtml } = await req.json();
 
     if (!prompt) {
@@ -33,9 +38,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ iterations: results });
   } catch (err) {
-    console.error("Generation error:", err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error("Generation error:", errMsg, err);
     return NextResponse.json(
-      { error: "Failed to generate designs" },
+      { error: `Generation failed: ${errMsg}` },
       { status: 500 }
     );
   }
