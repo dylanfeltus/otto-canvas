@@ -152,9 +152,10 @@ async function generateImages(
 ): Promise<Map<number, string>> {
   const gemini = getGeminiClient(geminiKey);
   if (!gemini) {
-    console.warn("No Gemini key — skipping image generation");
+    console.warn("[pipeline] No Gemini key available — skipping image generation");
     return new Map();
   }
+  console.log(`[pipeline] Gemini client created, generating ${placeholders.length} images`);
   const imageMap = new Map<number, string>();
 
   // Generate in parallel, max 3 concurrent (Gemini rate limits)
@@ -189,7 +190,7 @@ async function generateImages(
             }
           }
         } catch (err) {
-          console.warn(`Image generation failed for placeholder ${globalIdx}:`, err);
+          console.error(`[pipeline] Gemini image generation FAILED for placeholder ${globalIdx}:`, err instanceof Error ? err.message : err);
         }
         return globalIdx;
       })
@@ -348,13 +349,19 @@ export async function POST(req: NextRequest) {
 
         // Parse placeholders
         const placeholders = parsePlaceholders(html);
+        console.log(`[pipeline] enableImages=${enableImages}, geminiKey=${geminiKey ? "SET" : "MISSING"}, placeholders=${placeholders.length}`);
+        if (placeholders.length > 0) {
+          console.log(`[pipeline] Placeholders:`, placeholders.map(p => p.description));
+        }
 
         // Stage 2: Image generation (if enabled and placeholders exist)
         if (enableImages && placeholders.length > 0) {
           send(encodeStage("images", 0.45));
           try {
+            console.log(`[pipeline] Starting Gemini image generation for ${placeholders.length} placeholders`);
             const imageMap = await generateImages(placeholders, geminiKey);
 
+            console.log(`[pipeline] Gemini returned ${imageMap.size} images out of ${placeholders.length} placeholders`);
             // Stage 3: Compositing
             if (imageMap.size > 0) {
               send(encodeStage("compositing", 0.65));
@@ -366,6 +373,12 @@ export async function POST(req: NextRequest) {
             console.warn("Image pipeline failed, continuing with placeholders:", imgErr);
             // Continue with CSS placeholders — don't fail the whole pipeline
           }
+        }
+
+        if (!enableImages) {
+          console.log(`[pipeline] Image generation DISABLED (no Gemini key on client)`);
+        } else if (placeholders.length === 0) {
+          console.log(`[pipeline] No placeholders found in layout HTML — skipping image generation`);
         }
 
         // Stage 4: Visual QA (if enabled)
