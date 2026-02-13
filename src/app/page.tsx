@@ -285,8 +285,9 @@ export default function Home() {
               throw new Error(event.message);
             }
           } catch (e) {
-            if (e instanceof Error && e.message !== "Pipeline failed") {
-              // JSON parse error — skip malformed line
+            // Re-throw intentional errors from the pipeline
+            if (e instanceof SyntaxError) {
+              // JSON parse error — skip malformed SSE line
             } else {
               throw e;
             }
