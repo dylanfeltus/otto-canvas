@@ -21,10 +21,11 @@ function saveHistory(history: string[]): void {
 interface PromptBarProps {
   onSubmit: (prompt: string) => void;
   isGenerating: boolean;
+  genStatus?: string;
   onCancel?: () => void;
 }
 
-export function PromptBar({ onSubmit, isGenerating, onCancel }: PromptBarProps) {
+export function PromptBar({ onSubmit, isGenerating, genStatus, onCancel }: PromptBarProps) {
   const [value, setValue] = useState("");
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1); // -1 = current input, 0 = most recent, etc.
@@ -124,9 +125,13 @@ export function PromptBar({ onSubmit, isGenerating, onCancel }: PromptBarProps) 
           style={{ maxHeight: 22 * 6 }}
         />
         {isGenerating ? (
+          <div className="flex items-center gap-2 ml-2 shrink-0">
+            {genStatus && (
+              <span className="text-[11px] text-gray-400 font-medium animate-pulse">{genStatus}</span>
+            )}
           <button
             onClick={onCancel}
-            className="flex items-center justify-center w-10 h-10 ml-2 rounded-xl bg-red-500/80 backdrop-blur-sm text-white hover:bg-red-600 transition-all shrink-0"
+            className="flex items-center justify-center w-10 h-10 rounded-xl bg-red-500/80 backdrop-blur-sm text-white hover:bg-red-600 transition-all shrink-0"
             title="Cancel generation (Esc)"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -134,6 +139,7 @@ export function PromptBar({ onSubmit, isGenerating, onCancel }: PromptBarProps) 
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
+          </div>
         ) : (
           <button
             onClick={handleSubmit}

@@ -30,6 +30,7 @@ export default function Home() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [toolMode, setToolMode] = useState<ToolMode>("select");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [genStatus, setGenStatus] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -205,6 +206,7 @@ export default function Home() {
   const handleGenerate = useCallback(
     async (prompt: string) => {
       setIsGenerating(true);
+      setGenStatus("Planning concepts…");
       const groupId = `group-${Date.now()}`;
 
       try {
@@ -246,6 +248,7 @@ export default function Home() {
 
         // Generate sequentially — show one loading placeholder at a time
         for (let i = 0; i < iterationCount; i++) {
+          setGenStatus(`Designing ${i + 1} of ${iterationCount}…`);
           if (controller.signal.aborted) break;
 
           const iterId = `${groupId}-iter-${i}`;
@@ -366,6 +369,7 @@ export default function Home() {
       } finally {
         abortRef.current = null;
         setIsGenerating(false);
+        setGenStatus("");
       }
     },
     [getGridPositions, settings.apiKey, settings.model, canvas]
@@ -732,7 +736,7 @@ export default function Home() {
         hasFrames={groups.length > 0}
       />
 
-      <PromptBar onSubmit={handleGenerate} isGenerating={isGenerating} onCancel={() => abortRef.current?.abort()} />
+      <PromptBar onSubmit={handleGenerate} isGenerating={isGenerating} genStatus={genStatus} onCancel={() => abortRef.current?.abort()} />
 
       {/* Dev mode build badge */}
       {devMode && (
