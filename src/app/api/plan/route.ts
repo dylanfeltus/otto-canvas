@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
 
     // Use a fast model for planning regardless of user's selected model
     const message = await client.messages.create({
-      model: "claude-sonnet-4",
+      model: "claude-sonnet-4-5-20250514",
       max_tokens: 300,
       messages: [
         {
