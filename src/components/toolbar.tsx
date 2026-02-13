@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import type { ToolMode } from "@/lib/types";
 import { MODELS } from "@/hooks/use-settings";
 
@@ -37,6 +38,19 @@ export function Toolbar({
   hasFrames,
 }: ToolbarProps) {
   const modelLabel = MODELS.find((m) => m.id === model)?.label || "Sonnet 4.5";
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
 
   return (
     <div className="fixed top-4 right-4 z-50 flex items-center gap-1.5 rounded-2xl p-1 bg-gray-900/60 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.08)]">
@@ -88,43 +102,30 @@ export function Toolbar({
 
       <div className="w-px h-5 bg-white/15 mx-1" />
 
-      {/* Prompt library */}
-      <ToolButton onClick={onOpenLibrary} title="Prompt Library">
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="9" y1="18" x2="15" y2="18" />
-          <line x1="10" y1="22" x2="14" y2="22" />
-          <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
-        </svg>
-      </ToolButton>
-
-      {/* New session */}
-      {hasFrames && (
-        <ToolButton onClick={onNewSession} title="New Session">
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 5v14M5 12h14" />
+      {/* Menu dropdown */}
+      <div className="relative" ref={menuRef}>
+        <ToolButton onClick={() => setMenuOpen(!menuOpen)} title="Menu">
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="4" y1="6" x2="20" y2="6" />
+            <line x1="4" y1="12" x2="20" y2="12" />
+            <line x1="4" y1="18" x2="20" y2="18" />
           </svg>
         </ToolButton>
-      )}
 
-      {/* Import */}
-      <ToolButton onClick={onImport} title="Import .otto">
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="7 10 12 15 17 10" />
-          <line x1="12" y1="15" x2="12" y2="3" />
-        </svg>
-      </ToolButton>
-
-      {/* Export */}
-      {hasFrames && (
-        <ToolButton onClick={onExport} title="Export .otto">
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="17 8 12 3 7 8" />
-            <line x1="12" y1="3" x2="12" y2="15" />
-          </svg>
-        </ToolButton>
-      )}
+        {menuOpen && (
+          <div className="absolute top-full right-0 mt-2 w-48 rounded-xl bg-gray-900/90 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] py-1 overflow-hidden">
+            <MenuItem icon="💡" label="Prompt Library" onClick={() => { onOpenLibrary(); setMenuOpen(false); }} />
+            <MenuItem icon="📥" label="Import .otto" onClick={() => { onImport(); setMenuOpen(false); }} />
+            {hasFrames && (
+              <>
+                <MenuItem icon="📤" label="Export .otto" onClick={() => { onExport(); setMenuOpen(false); }} />
+                <div className="h-px bg-white/10 my-1" />
+                <MenuItem icon="🗑" label="Clear Canvas" onClick={() => { onNewSession(); setMenuOpen(false); }} danger />
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="w-px h-5 bg-white/15 mx-1" />
 
@@ -142,6 +143,22 @@ export function Toolbar({
         </svg>
       </button>
     </div>
+  );
+}
+
+function MenuItem({ icon, label, onClick, danger }: { icon: string; label: string; onClick: () => void; danger?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-2.5 px-3 py-2 text-[12px] font-medium transition-colors ${
+        danger
+          ? "text-red-400 hover:bg-red-500/10"
+          : "text-gray-300 hover:bg-white/10 hover:text-white"
+      }`}
+    >
+      <span className="text-sm">{icon}</span>
+      {label}
+    </button>
   );
 }
 
