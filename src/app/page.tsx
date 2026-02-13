@@ -123,26 +123,11 @@ export default function Home() {
       const iterationCount = 4;
       const positions = getGridPositions(iterationCount);
 
-      // Create placeholder iterations
-      const placeholders: DesignIteration[] = Array.from(
-        { length: iterationCount },
-        (_, i) => ({
-          id: `${groupId}-iter-${i}`,
-          html: "",
-          label: `Variation ${i + 1}`,
-          position: positions[i],
-          width: 400,
-          height: 300,
-          prompt,
-          comments: [],
-          isLoading: true,
-        })
-      );
-
+      // Start with empty group — add one placeholder at a time
       const newGroup: GenerationGroup = {
         id: groupId,
         prompt,
-        iterations: placeholders,
+        iterations: [],
         position: positions[0],
         createdAt: Date.now(),
       };
@@ -154,11 +139,35 @@ export default function Home() {
         const controller = new AbortController();
         abortRef.current = controller;
 
-        // Generate sequentially — each variation appears as it completes
-        const completedIterations: Array<{ width?: number; height?: number }> = [];
-
+        // Generate sequentially — show one loading placeholder at a time
         for (let i = 0; i < iterationCount; i++) {
           if (controller.signal.aborted) break;
+
+          const iterId = `${groupId}-iter-${i}`;
+
+          // Add loading placeholder for this variation
+          setGroups((prev) =>
+            prev.map((g) => {
+              if (g.id !== groupId) return g;
+              return {
+                ...g,
+                iterations: [
+                  ...g.iterations,
+                  {
+                    id: iterId,
+                    html: "",
+                    label: `Variation ${i + 1}`,
+                    position: positions[i],
+                    width: 400,
+                    height: 300,
+                    prompt,
+                    comments: [],
+                    isLoading: true,
+                  },
+                ],
+              };
+            })
+          );
 
           const res = await fetch("/api/generate", {
             method: "POST",
@@ -179,16 +188,15 @@ export default function Home() {
 
           const data = await res.json();
           const iter = data.iteration;
-          completedIterations.push(iter);
 
-          // Update this specific iteration immediately
+          // Replace placeholder with completed result
           setGroups((prev) =>
             prev.map((g) => {
               if (g.id !== groupId) return g;
               return {
                 ...g,
-                iterations: g.iterations.map((existing, idx) => {
-                  if (idx !== i) return existing;
+                iterations: g.iterations.map((existing) => {
+                  if (existing.id !== iterId) return existing;
                   return {
                     ...existing,
                     html: iter?.html || "<p>Failed to generate</p>",
@@ -201,22 +209,6 @@ export default function Home() {
               };
             })
           );
-
-          // Zoom-to-fit after first result, and again after last
-          if (i === 0 || i === iterationCount - 1) {
-            setTimeout(() => {
-              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-              positions.forEach((pos, idx) => {
-                const w = completedIterations[idx]?.width || FRAME_WIDTH;
-                const h = completedIterations[idx]?.height || 400;
-                minX = Math.min(minX, pos.x);
-                minY = Math.min(minY, pos.y);
-                maxX = Math.max(maxX, pos.x + w);
-                maxY = Math.max(maxY, pos.y + h);
-              });
-              canvas.zoomToFit({ minX, minY, maxX, maxY });
-            }, 100);
-          }
         }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {
