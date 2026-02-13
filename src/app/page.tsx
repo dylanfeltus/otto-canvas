@@ -33,6 +33,7 @@ export default function Home() {
   const abortRef = useRef<AbortController | null>(null);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [devMode, setDevMode] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [commentDraft, setCommentDraft] = useState<{
     iterationId: string;
@@ -52,6 +53,11 @@ export default function Home() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
   const commentCountRef = useRef(0);
+
+  // Dev mode from URL
+  useEffect(() => {
+    setDevMode(new URLSearchParams(window.location.search).has("devMode"));
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -714,7 +720,7 @@ export default function Home() {
       <PromptBar onSubmit={handleGenerate} isGenerating={isGenerating} onCancel={() => abortRef.current?.abort()} />
 
       {/* Dev mode build badge */}
-      {typeof window !== "undefined" && new URLSearchParams(window.location.search).has("devMode") && (
+      {devMode && (
         <div className="fixed bottom-2 left-2 z-40 text-[9px] font-mono text-gray-400 bg-black/5 backdrop-blur-sm px-2 py-1 rounded-md select-all">
           {process.env.NEXT_PUBLIC_GIT_HASH}
         </div>
@@ -772,6 +778,7 @@ export default function Home() {
           isOwnKey={isOwnKey}
           availableModels={availableModels}
           isProbing={isProbing}
+          devMode={devMode}
         />
       )}
 

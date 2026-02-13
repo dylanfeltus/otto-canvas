@@ -10,9 +10,10 @@ interface SettingsModalProps {
   isOwnKey: boolean;
   availableModels: Record<string, boolean> | null;
   isProbing: boolean;
+  devMode?: boolean;
 }
 
-export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, availableModels, isProbing }: SettingsModalProps) {
+export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, availableModels, isProbing, devMode }: SettingsModalProps) {
   const [key, setKey] = useState(settings.apiKey);
 
   useEffect(() => {
@@ -163,7 +164,7 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
         </div>
 
         {/* Advanced / System Prompt — only visible with ?devMode=true */}
-        {typeof window !== "undefined" && new URLSearchParams(window.location.search).has("devMode") && (
+        {devMode && (
           <div className="px-6 pb-6">
             <div className="border border-amber-200/50 bg-amber-50/30 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
