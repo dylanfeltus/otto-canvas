@@ -45,7 +45,7 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
 
       <div className="relative bg-white/60 backdrop-blur-2xl rounded-3xl border border-white/60 shadow-[0_24px_80px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.7)] w-[540px] max-w-[92vw] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-8 py-5 border-b border-gray-200/30">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200/30">
           <h2 className="text-[17px] font-semibold text-gray-800">Settings</h2>
           <button
             onClick={onClose}
@@ -58,7 +58,7 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
           </button>
         </div>
 
-        <div className="px-8 py-7 space-y-8">
+        <div className="p-6 space-y-8">
           {/* API Key */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -163,7 +163,7 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
         </div>
 
         {/* Footer */}
-        <div className="px-8 py-5 border-t border-gray-200/30 flex items-center justify-between">
+        <div className="p-6 border-t border-gray-200/30 flex items-center justify-between">
           <span className="text-[11px] text-gray-400">
             {isOwnKey ? "🔑 Own key" : "🌐 Demo key"} · {MODELS.find((m) => m.id === settings.model)?.label}
           </span>
