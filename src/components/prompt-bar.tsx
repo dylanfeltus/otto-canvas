@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from "react";
 
 const HISTORY_KEY = "otto-prompt-history";
 const MAX_HISTORY = 50;
@@ -29,7 +29,17 @@ export function PromptBar({ onSubmit, isGenerating, onCancel }: PromptBarProps) 
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1); // -1 = current input, 0 = most recent, etc.
   const [draft, setDraft] = useState(""); // saves current input when browsing history
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea
+  const autoResize = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const lineHeight = 22;
+    const maxHeight = lineHeight * 6; // cap at 6 lines
+    el.style.height = Math.min(el.scrollHeight, maxHeight) + "px";
+  }, []);
 
   // Load history on mount
   useEffect(() => {
@@ -49,10 +59,12 @@ export function PromptBar({ onSubmit, isGenerating, onCancel }: PromptBarProps) 
     setValue("");
     setHistoryIndex(-1);
     setDraft("");
+    if (inputRef.current) inputRef.current.style.height = "auto";
   }, [value, isGenerating, history, onSubmit]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
       handleSubmit();
       return;
     }
@@ -101,14 +113,15 @@ export function PromptBar({ onSubmit, isGenerating, onCancel }: PromptBarProps) 
   return (
     <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
       <div className="pointer-events-auto flex items-center rounded-[20px] px-4 py-4 w-[600px] max-w-[90vw] transition-all duration-300 bg-white/20 backdrop-blur-3xl border border-white/30 shadow-[0_8px_40px_rgba(0,0,0,0.06),0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-1px_0_rgba(255,255,255,0.15)] focus-within:shadow-[0_12px_48px_rgba(59,130,246,0.1),0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.9),inset_0_-1px_0_rgba(255,255,255,0.3)] focus-within:bg-white/30 focus-within:border-white/50">
-        <input
+        <textarea
           ref={inputRef}
-          type="text"
           value={value}
-          onChange={(e) => { setValue(e.target.value); setHistoryIndex(-1); }}
+          onChange={(e) => { setValue(e.target.value); setHistoryIndex(-1); autoResize(); }}
           onKeyDown={handleKeyDown}
           placeholder="Describe a design..."
-          className="flex-1 px-0 py-2 text-[15px] text-gray-800 placeholder-gray-400/70 bg-transparent outline-none"
+          rows={1}
+          className="flex-1 px-0 py-2 text-[15px] text-gray-800 placeholder-gray-400/70 bg-transparent outline-none resize-none leading-[22px]"
+          style={{ maxHeight: 22 * 6 }}
         />
         {isGenerating ? (
           <button
