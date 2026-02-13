@@ -40,10 +40,10 @@ export function PipelineStatusOverlay({ status, x, y, width, frameHeight }: Pipe
         </div>
         <span
           className={`text-[10px] font-medium whitespace-nowrap ${
-            isError ? "text-red-400" : "text-gray-400/70"
+            isError ? "text-red-400" : status.skipped ? "text-amber-400/80" : "text-gray-400/70"
           }`}
         >
-          {config.label}
+          {status.skipped ? `⏭ ${status.reason || "Skipped"}` : config.label}
         </span>
       </div>
     </div>

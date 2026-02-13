@@ -272,7 +272,7 @@ export default function Home() {
             if (event.type === "stage") {
               setPipelineStages((prev) => ({
                 ...prev,
-                [iterId]: { stage: event.stage, progress: event.progress },
+                [iterId]: { stage: event.stage, progress: event.progress, skipped: event.skipped, reason: event.reason },
               }));
             } else if (event.type === "preview") {
               // Intermediate preview — update frame in-place while still loading

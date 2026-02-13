@@ -13,6 +13,8 @@ export type PipelineStage =
 export interface PipelineStatus {
   stage: PipelineStage;
   progress: number; // 0-1
+  skipped?: boolean;
+  reason?: string;
 }
 
 export const STAGE_CONFIG: Record<PipelineStage, { label: string; progress: number; icon: string }> = {

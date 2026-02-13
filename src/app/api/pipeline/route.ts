@@ -95,15 +95,21 @@ async function generateLayout(
 Design request: "${prompt}"
 Style direction: ${style}
 
-IMAGE PLACEHOLDERS — this is critical:
-- Where the design needs a photo, illustration, or visual asset, use this EXACT format:
-  <div data-placeholder="DESCRIPTION" data-ph-w="WIDTH" data-ph-h="HEIGHT" style="width:WIDTHpx;height:HEIGHTpx;background:#e5e7eb;display:flex;align-items:center;justify-content:center;border-radius:8px;overflow:hidden;">
-    <span style="color:#9ca3af;font-size:12px;text-align:center;padding:8px;">DESCRIPTION</span>
-  </div>
-- DESCRIPTION should be a detailed prompt for image generation (e.g., "Modern minimalist office workspace with plants, soft natural lighting")
-- Use real dimensions that fit the layout
-- You can have 0-6 placeholders per design
-- For decorative/abstract elements, still use CSS gradients — only use placeholders for things that need real imagery
+⚠️ MANDATORY IMAGE PLACEHOLDERS — YOU MUST INCLUDE THESE:
+Every design MUST contain at least 1-3 image placeholder divs. This is NON-NEGOTIABLE.
+Do NOT use colored boxes, CSS gradients, or background-image as substitutes for real imagery.
+Do NOT use <img> tags with URLs. Use ONLY placeholder divs in this EXACT format:
+
+<div data-placeholder="DESCRIPTION" data-ph-w="WIDTH" data-ph-h="HEIGHT" style="width:WIDTHpx;height:HEIGHTpx;background:#e5e7eb;display:flex;align-items:center;justify-content:center;border-radius:8px;overflow:hidden;">
+  <span style="color:#9ca3af;font-size:12px;text-align:center;padding:8px;">DESCRIPTION</span>
+</div>
+
+Rules for placeholders:
+- DESCRIPTION = detailed image generation prompt (e.g., "Modern minimalist office workspace with plants, soft natural lighting")
+- WIDTH/HEIGHT = real pixel dimensions that fit the layout (e.g., data-ph-w="400" data-ph-h="300")
+- Include 1-6 placeholders per design — hero images, product photos, team photos, backgrounds, etc.
+- Use CSS gradients ONLY for decorative/abstract accents, NOT as replacements for photographs
+- The data-placeholder, data-ph-w, and data-ph-h attributes are REQUIRED — they trigger the image generation pipeline
 
 SIZE — output a size comment on the FIRST line:
 <!--size:WIDTHxHEIGHT-->
@@ -448,8 +454,11 @@ export async function POST(req: NextRequest) {
 
         if (!enableImages) {
           console.log(`[pipeline] Image generation DISABLED (no Gemini key on client)`);
+          send(encodeStage("images", 0.45, { skipped: true, reason: "No Gemini API key — add one in Settings to enable image generation" }));
         } else if (placeholders.length === 0) {
           console.log(`[pipeline] No placeholders found in layout HTML — skipping image generation`);
+          console.log(`[pipeline] First 500 chars of layout HTML:`, html.slice(0, 500));
+          send(encodeStage("images", 0.45, { skipped: true, reason: "No image placeholders found in layout" }));
         }
 
         // Stage 4: Visual QA (if enabled)
