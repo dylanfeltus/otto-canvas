@@ -4,7 +4,9 @@
 
 An open-source AI design tool by [Otto](https://otto.design). Describe what you want, get multiple design variations on an infinite canvas, then click to refine.
 
-**Vibe coding, but for design.**
+**Vibe designing.**
+
+<img width="320" height="180" alt="rrcover 2" src="https://github.com/user-attachments/assets/813cd160-ae56-4ee7-b519-b9d1e0a8f133" />
 
 ## Features
 
