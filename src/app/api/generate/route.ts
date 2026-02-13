@@ -3,11 +3,52 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 60;
 
-const DEFAULT_MODEL = "claude-opus-4-20250514";
+// Fallback chain — if requested model fails, try next one down
+const MODEL_FALLBACK_CHAIN = [
+  "claude-opus-4-0520",
+  "claude-sonnet-4-0514",
+  "claude-haiku-3-20241022",
+];
+
+const DEFAULT_MODEL = "claude-sonnet-4-0514";
 
 function getClient(apiKey?: string): Anthropic {
   if (apiKey) return new Anthropic({ apiKey });
   return new Anthropic();
+}
+
+/** Try a model call, falling back to cheaper models on "not found" errors */
+async function callWithFallback(
+  client: Anthropic,
+  preferredModel: string,
+  messages: Anthropic.MessageCreateParams["messages"],
+  maxTokens: number
+): Promise<{ result: Anthropic.Message; usedModel: string }> {
+  // Build fallback list: preferred model first, then remaining chain models
+  const idx = MODEL_FALLBACK_CHAIN.indexOf(preferredModel);
+  const fallbacks =
+    idx >= 0
+      ? MODEL_FALLBACK_CHAIN.slice(idx)
+      : [preferredModel, ...MODEL_FALLBACK_CHAIN];
+
+  let lastError: unknown;
+  for (const model of fallbacks) {
+    try {
+      const result = await client.messages.create({ model, max_tokens: maxTokens, messages });
+      return { result, usedModel: model };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // Only fallback on model-not-found / not-available errors
+      if (msg.includes("not_found") || msg.includes("404") || msg.includes("model")) {
+        console.warn(`Model ${model} unavailable, trying fallback...`);
+        lastError = err;
+        continue;
+      }
+      // Any other error (auth, rate limit, etc.) — throw immediately
+      throw err;
+    }
+  }
+  throw lastError;
 }
 
 const VARIATION_STYLES = [
@@ -60,13 +101,10 @@ async function generateVariation(
   style: string,
   index: number
 ): Promise<{ html: string; label: string }> {
-  const message = await client.messages.create({
-    model,
-    max_tokens: 4096,
-    messages: [
-      {
-        role: "user",
-        content: `You are a UI/web designer. Generate a single, self-contained HTML design for the following request.
+  const { result: message } = await callWithFallback(client, model, [
+    {
+      role: "user",
+      content: `You are a UI/web designer. Generate a single, self-contained HTML design for the following request.
 
 Design request: "${prompt}"
 Style direction: ${style}
@@ -83,9 +121,8 @@ IMPORTANT RULES:
 - Use web-safe fonts or system font stack
 - Include appropriate padding and spacing
 - Make colors, typography, and spacing feel intentional and designed`,
-      },
-    ],
-  });
+    },
+  ], 4096);
 
   const html =
     message.content[0].type === "text" ? message.content[0].text : "";
@@ -103,13 +140,10 @@ async function generateSingle(
   revision: string,
   existingHtml: string
 ): Promise<{ html: string; label: string }> {
-  const message = await client.messages.create({
-    model,
-    max_tokens: 4096,
-    messages: [
-      {
-        role: "user",
-        content: `You are a UI/web designer. Here is an existing HTML design:
+  const { result: message } = await callWithFallback(client, model, [
+    {
+      role: "user",
+      content: `You are a UI/web designer. Here is an existing HTML design:
 
 ${existingHtml}
 
@@ -124,9 +158,8 @@ IMPORTANT RULES:
 - Include ALL CSS inline in a <style> tag at the top
 - The design must be self-contained — no external dependencies
 - Maintain the same width and layout approach`,
-      },
-    ],
-  });
+    },
+  ], 4096);
 
   const html =
     message.content[0].type === "text" ? message.content[0].text : "";

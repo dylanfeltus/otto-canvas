@@ -9,13 +9,12 @@ export interface Settings {
 
 const STORAGE_KEY = "otto-settings";
 const PROBE_CACHE_KEY = "otto-model-probe";
-const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+const DEFAULT_MODEL = "claude-sonnet-4-0514";
 
 export const MODELS = [
-  { id: "claude-opus-4-0626", label: "Opus 4.6", desc: "Best quality, slowest" },
-  { id: "claude-opus-4-20250514", label: "Opus 4", desc: "High quality, slower" },
-  { id: "claude-sonnet-4-5-20250514", label: "Sonnet 4.5", desc: "Fast + great" },
-  { id: "claude-sonnet-4-20250514", label: "Sonnet 4", desc: "Fastest" },
+  { id: "claude-opus-4-0520", label: "Opus 4", desc: "Best quality, slower" },
+  { id: "claude-sonnet-4-0514", label: "Sonnet 4", desc: "Fast + great" },
+  { id: "claude-haiku-3-20241022", label: "Haiku 3", desc: "Fastest, lightweight" },
 ] as const;
 
 // Simple hash for cache key
