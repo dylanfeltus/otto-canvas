@@ -78,7 +78,7 @@ export function DesignCard({
           d.body?.offsetHeight ?? 0,
           100
         );
-        setContentHeight(h + 20); // 20px buffer
+        setContentHeight(h);
         measuredRef.current = true;
       } catch {}
     };
@@ -115,10 +115,9 @@ export function DesignCard({
     onAddComment(iteration.id, { x, y });
   };
 
-  // Use measured content height, but cap to model hint + buffer if measurement seems off
-  const maxReasonableHeight = (iteration.height || 800) + 40;
+  // Use measured content height, fallback to model hint
   const measuredHeight = measuredRef.current ? contentHeight : (iteration.height || 320);
-  const frameHeight = iteration.isLoading ? 320 : Math.min(measuredHeight, maxReasonableHeight);
+  const frameHeight = iteration.isLoading ? 320 : measuredHeight;
 
   return (
     <div
