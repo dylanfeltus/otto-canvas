@@ -3,6 +3,29 @@
 import { useState, useEffect } from "react";
 import { MODELS, type Settings } from "@/hooks/use-settings";
 
+const SYSTEM_PROMPT_PRESETS = [
+  {
+    id: "uiux",
+    label: "UI/UX Designer",
+    prompt: "You are a UI/UX designer specializing in clean, functional interfaces. Focus on usability, clear information hierarchy, consistent spacing, and intuitive navigation patterns. Use a modern design system approach with proper component structure.",
+  },
+  {
+    id: "marketing",
+    label: "Marketing Website Designer",
+    prompt: "You are a marketing website designer. Create high-converting landing pages, hero sections, and marketing materials. Focus on compelling headlines, clear CTAs, social proof sections, and visual storytelling. Think Webflow/Framer quality.",
+  },
+  {
+    id: "brand",
+    label: "Brand Designer",
+    prompt: "You are a brand designer creating cohesive visual identities. Focus on distinctive color palettes, typography pairings, logo presentations, brand guidelines, and collateral. Every design should feel like part of a unified brand system.",
+  },
+  {
+    id: "custom",
+    label: "Custom",
+    prompt: "",
+  },
+];
+
 interface SettingsModalProps {
   settings: Settings;
   onUpdate: (update: Partial<Settings>) => void;
@@ -195,12 +218,39 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
                 </p>
               </div>
 
+              {/* System prompt preset */}
+              <div className="mb-4">
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  Designer Preset
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {SYSTEM_PROMPT_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      onClick={() => {
+                        onUpdate({
+                          systemPromptPreset: preset.id,
+                          systemPrompt: preset.id === "custom" ? "" : preset.prompt,
+                        });
+                      }}
+                      className={`text-[11px] font-medium px-3 py-1.5 rounded-lg transition-all ${
+                        settings.systemPromptPreset === preset.id
+                          ? "bg-amber-500/90 text-white"
+                          : "bg-white/50 text-gray-600 hover:bg-white/80"
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 System Prompt
               </label>
               <textarea
                 value={settings.systemPrompt}
-                onChange={(e) => onUpdate({ systemPrompt: e.target.value })}
+                onChange={(e) => onUpdate({ systemPrompt: e.target.value, systemPromptPreset: "custom" })}
                 placeholder="Add custom instructions for the AI designer...&#10;&#10;e.g. &quot;You are a Facebook ad designer. Use 1200x628, minimal text, strong visual hierarchy...&quot;"
                 className="w-full h-32 px-4 py-3 rounded-xl bg-white/70 border border-gray-200/50 text-[13px] text-gray-700 placeholder-gray-400 outline-none focus:border-blue-300/50 focus:ring-1 focus:ring-blue-200/30 resize-y font-mono"
               />

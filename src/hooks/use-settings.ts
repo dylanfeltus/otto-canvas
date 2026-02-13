@@ -6,6 +6,7 @@ export interface Settings {
   apiKey: string;
   model: string;
   systemPrompt: string;
+  systemPromptPreset: string;
   conceptCount: number;
 }
 
@@ -25,6 +26,7 @@ export function useSettings() {
     apiKey: "",
     model: DEFAULT_MODEL,
     systemPrompt: "",
+    systemPromptPreset: "custom",
     conceptCount: 4,
   });
   const [loaded, setLoaded] = useState(false);
@@ -39,6 +41,7 @@ export function useSettings() {
           apiKey: parsed.apiKey || "",
           model: parsed.model || DEFAULT_MODEL,
           systemPrompt: parsed.systemPrompt || "",
+          systemPromptPreset: parsed.systemPromptPreset || "custom",
           conceptCount: parsed.conceptCount || 4,
         });
       }
