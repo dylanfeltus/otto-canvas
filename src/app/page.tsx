@@ -176,9 +176,19 @@ export default function Home() {
             return;
           }
           setGroups(data.groups.map((g: Record<string, unknown>) => ({
-            ...g,
-            iterations: (g.iterations as Record<string, unknown>[]).map((iter: Record<string, unknown>) => ({
-              ...iter,
+            id: g.id || `group-${Date.now()}-${Math.random()}`,
+            prompt: g.prompt || "",
+            position: g.position || { x: 0, y: 0 },
+            createdAt: g.createdAt || Date.now(),
+            iterations: ((g.iterations as Record<string, unknown>[]) || []).map((iter: Record<string, unknown>) => ({
+              id: iter.id || `iter-${Date.now()}-${Math.random()}`,
+              html: iter.html || "",
+              label: iter.label || "Imported",
+              position: iter.position || { x: 0, y: 0 },
+              width: iter.width || 600,
+              height: iter.height || 400,
+              prompt: iter.prompt || g.prompt || "",
+              comments: iter.comments || [],
               isLoading: false,
               isRegenerating: false,
             })),
