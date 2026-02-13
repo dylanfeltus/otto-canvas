@@ -101,7 +101,7 @@ async function generateVariation(
   prompt: string,
   style: string,
   index: number
-): Promise<{ html: string; label: string }> {
+): Promise<{ html: string; label: string; width?: number; height?: number }> {
   const { result: message } = await callWithFallback(client, model, [
     {
       role: "user",
@@ -159,7 +159,7 @@ async function generateSingle(
   originalPrompt: string,
   revision: string,
   existingHtml: string
-): Promise<{ html: string; label: string }> {
+): Promise<{ html: string; label: string; width?: number; height?: number }> {
   const { result: message } = await callWithFallback(client, model, [
     {
       role: "user",
