@@ -11,8 +11,7 @@ const SYSTEM_PROMPT_PRESETS = [
 
 OUTPUT RULES:
 - Static HTML/CSS only. No animations, transitions, keyframes, transforms, or any motion.
-- No CSS illustrations or realistic drawings. Use geometric shapes, gradients, and solid color blocks for visual elements.
-- For images, icons, or illustrations: render a light gray (#F3F4F6) rounded rectangle with a centered descriptive label (e.g., "User Avatar" or "Chart: Revenue Over Time").
+- For images, icons, photos, or illustrations: use image placeholder divs (the pipeline will generate real images for these automatically). Write detailed, descriptive placeholder labels that work as image generation prompts (e.g., "User avatar photo, professional headshot" or "Line chart showing revenue growth over 12 months").
 - All text must meet WCAG AA contrast (4.5:1 minimum, 3:1 for large text).
 
 TYPOGRAPHY:
@@ -54,8 +53,7 @@ DON'T: Decorative gradients. Giant text. Marketing-style layouts. Placeholder lo
 
 OUTPUT RULES:
 - Static HTML/CSS only. No animations, transitions, keyframes, transforms, or any motion.
-- No CSS illustrations or realistic drawings. Use geometric shapes, gradients, and color blocks for decorative elements.
-- For photos/screenshots: render a rounded rectangle placeholder with a descriptive label (e.g., "Hero Image: Dashboard Screenshot" or "Headshot: Customer").
+- For photos, screenshots, or visual assets: use image placeholder divs (the pipeline will generate real images automatically). Write descriptive placeholder labels that work as image generation prompts (e.g., "Hero image: modern SaaS dashboard with analytics charts" or "Professional headshot of smiling woman, neutral background").
 - All text must meet WCAG AA contrast (4.5:1 minimum).
 
 TYPOGRAPHY:
@@ -101,8 +99,7 @@ DON'T: Cluttered layouts. Tiny text. Multiple competing CTAs. Generic stock-phot
 
 OUTPUT RULES:
 - Static HTML/CSS only. No animations, transitions, keyframes, transforms, or any motion.
-- No CSS illustrations or realistic drawings. Use bold geometric shapes, solid color blocks, and simple gradients.
-- For product photos or lifestyle imagery: render a colored rectangle with a centered label (e.g., "Product Shot: Sneaker" or "Lifestyle: Person Using App"). Style the placeholder to complement the palette.
+- For product photos, lifestyle imagery, or visual assets: use image placeholder divs (the pipeline will generate real images automatically). Write vivid, descriptive placeholder labels that work as image generation prompts (e.g., "Product shot: white sneaker on concrete, dramatic side lighting" or "Lifestyle: person using laptop in bright modern cafe").
 - All text must meet 4.5:1 contrast ratio minimum.
 - Set explicit width and height on the outermost container to match the target platform. Use overflow: hidden.
 
