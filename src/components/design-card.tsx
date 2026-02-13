@@ -62,8 +62,9 @@ export function DesignCard({
     doc.open();
     doc.write(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
-  html { height: auto; }
-  body { margin: 0; padding: 0; background: white; width: ${iteration.width || FRAME_WIDTH}px; overflow-x: hidden; overflow-y: hidden; min-height: 100px; }
+  html { height: auto; max-height: none; }
+  body { margin: 0; padding: 0; background: white; width: ${iteration.width || FRAME_WIDTH}px; overflow: hidden; min-height: 100px; max-height: none; }
+  body > * { max-height: 2000px; }
 </style></head><body>${iteration.html}</body></html>`);
     doc.close();
 
@@ -71,13 +72,27 @@ export function DesignCard({
       try {
         const d = iframe.contentDocument;
         if (!d?.documentElement) return;
-        // Read the true content height
-        const h = Math.max(
+
+        // Prefer first child element height (avoids viewport unit inflation)
+        const firstChild = d.body?.firstElementChild as HTMLElement | null;
+        const childH = firstChild ? firstChild.offsetHeight : 0;
+        const scrollH = Math.max(
           d.documentElement.scrollHeight,
           d.body?.scrollHeight ?? 0,
           d.body?.offsetHeight ?? 0,
-          100
         );
+
+        // Use the smaller of scrollHeight and firstChild height (if reasonable)
+        // This avoids 100vh expanding to the 2000px initial iframe height
+        let h = scrollH;
+        if (childH > 100 && childH < scrollH) {
+          h = childH;
+        }
+
+        // Cap to model hint + generous buffer, or absolute max
+        const hintMax = (iteration.height || 900) * 1.5;
+        h = Math.min(Math.max(h, 100), hintMax, 1500);
+
         setContentHeight(h);
         measuredRef.current = true;
       } catch {}
