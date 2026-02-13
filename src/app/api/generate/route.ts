@@ -185,7 +185,7 @@ IMPORTANT RULES:
     message.content[0].type === "text" ? message.content[0].text : "";
 
   return {
-    html: cleanHtml(html),
+    html: parseHtmlWithSize(html).html,
     label: "Revised",
   };
 }
