@@ -53,7 +53,8 @@ export function Toolbar({
   }, [menuOpen]);
 
   return (
-    <div className="fixed top-4 right-4 z-50 flex items-center gap-1.5 rounded-2xl p-1 bg-gray-900/60 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.08)] max-w-[calc(100vw-2rem)] overflow-x-auto">
+    <div className="fixed top-4 right-4 z-50 rounded-2xl p-1 bg-gray-900/60 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.08)] max-w-[calc(100vw-2rem)]">
+      <div className="flex items-center gap-1.5 overflow-x-auto">
       {/* Select tool */}
       <ToolButton
         active={mode === "select"}
@@ -118,8 +119,10 @@ export function Toolbar({
 
       <div className="w-px h-5 bg-white/15 mx-1" />
 
-      {/* Menu dropdown */}
-      <div className="relative" ref={menuRef}>
+      </div>{/* end scroll wrapper */}
+
+      {/* Menu dropdown — outside scroll wrapper so it's not clipped */}
+      <div className="relative shrink-0" ref={menuRef}>
         <ToolButton onClick={() => setMenuOpen(!menuOpen)} title="Menu">
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <line x1="4" y1="6" x2="20" y2="6" />
