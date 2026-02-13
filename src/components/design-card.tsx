@@ -13,6 +13,8 @@ interface DesignCardProps {
   isCommentMode: boolean;
   isSelectMode: boolean;
   isDragging: boolean;
+  isSelected?: boolean;
+  onSelect?: () => void;
   onAddComment: (iterationId: string, position: Point) => void;
   onClickComment: (comment: CommentType) => void;
   onDragStart: (e: React.MouseEvent) => void;
@@ -35,6 +37,8 @@ export function DesignCard({
   isCommentMode,
   isSelectMode,
   isDragging,
+  isSelected,
+  onSelect,
   onAddComment,
   onClickComment,
   onDragStart,
@@ -167,13 +171,17 @@ export function DesignCard({
       {/* Frame — fixed width, NO transitions on any dimension */}
       <div
         ref={wrapperRef}
-        onClick={handleClick}
-        onMouseDown={isSelectMode ? onDragStart : undefined}
-        className={`relative bg-white rounded-xl shadow-md border border-gray-200/80 overflow-hidden ${
+        onClick={(e) => { handleClick(e); if (isSelectMode && onSelect) { e.stopPropagation(); onSelect(); } }}
+        onMouseDown={(e) => { if (isSelectMode) { e.stopPropagation(); onDragStart(e); } }}
+        className={`relative bg-white rounded-xl shadow-md border overflow-hidden transition-shadow ${
+          isSelected
+            ? "ring-2 ring-blue-500 border-blue-400/50 shadow-lg"
+            : "border-gray-200/80"
+        } ${
           isCommentMode
             ? "cursor-crosshair ring-2 ring-blue-400/20 hover:ring-blue-400/40"
             : isSelectMode
-            ? isDragging ? "cursor-grabbing shadow-xl ring-2 ring-blue-400/30" : "cursor-grab"
+            ? isDragging ? "cursor-grabbing shadow-xl ring-2 ring-blue-400/30" : "cursor-grab hover:shadow-lg"
             : ""
         } ${iteration.isRegenerating ? "opacity-60" : ""}`}
         style={{ width: iteration.width || FRAME_WIDTH, height: frameHeight }}

@@ -49,6 +49,7 @@ export default function Home() {
   } | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [activeComment, setActiveComment] = useState<CommentType | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
   const commentCountRef = useRef(0);
 
@@ -65,6 +66,11 @@ export default function Home() {
       if (e.key === "Escape") {
         setCommentDraft(null);
         setActiveComment(null);
+        setSelectedGroupId(null);
+      }
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedGroupId) {
+        setGroups((prev) => prev.filter((g) => g.id !== selectedGroupId));
+        setSelectedGroupId(null);
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
@@ -76,7 +82,7 @@ export default function Home() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, []);
+  }, [selectedGroupId]);
 
   // Grid positioning — 2 columns, centered in viewport
   const H_GAP = 60;
@@ -563,7 +569,7 @@ export default function Home() {
 
   const canPan = (spaceHeld || toolMode === "select") && !draggingId;
 
-  const allIterations = groups.flatMap((g) => g.iterations);
+  const allIterations = groups.flatMap((g) => g.iterations.map((iter) => ({ ...iter, groupId: g.id })));
 
   return (
     <div className="h-screen w-screen overflow-hidden relative select-none">
@@ -573,7 +579,10 @@ export default function Home() {
         className={`absolute inset-0 canvas-dots ${
           canPan ? "cursor-grab active:cursor-grabbing" : ""
         } ${toolMode === "comment" && !spaceHeld ? "cursor-crosshair" : ""}`}
-        onMouseDown={canPan ? canvas.onMouseDown : undefined}
+        onMouseDown={(e) => {
+          setSelectedGroupId(null);
+          if (canPan) canvas.onMouseDown(e);
+        }}
         onMouseMove={(e) => {
           if (draggingId) { handleFrameDragMove(e); } else { canvas.onMouseMove(e); }
         }}
@@ -599,6 +608,8 @@ export default function Home() {
               isCommentMode={toolMode === "comment" && !spaceHeld}
               isSelectMode={toolMode === "select" && !spaceHeld}
               isDragging={draggingId === iteration.id}
+              isSelected={selectedGroupId === iteration.groupId}
+              onSelect={() => setSelectedGroupId(iteration.groupId)}
               onAddComment={handleAddComment}
               onClickComment={handleClickComment}
               onDragStart={(e) => handleFrameDragStart(iteration.id, e)}
