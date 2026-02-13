@@ -7,8 +7,8 @@ export const maxDuration = 60;
 const MODEL_FALLBACK_CHAIN = [
   "claude-opus-4-6-20250219",
   "claude-sonnet-4-5-20241022",
-  "claude-opus-4-0520",
-  "claude-sonnet-4-0514",
+  "claude-opus-4-20250514",
+  "claude-sonnet-4-20250514",
 ];
 
 const DEFAULT_MODEL = "claude-sonnet-4-5-20241022";
