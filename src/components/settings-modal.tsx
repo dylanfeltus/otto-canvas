@@ -165,10 +165,9 @@ interface SettingsModalProps {
   isOwnKey: boolean;
   availableModels: Record<string, boolean> | null;
   isProbing: boolean;
-  devMode?: boolean;
 }
 
-export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, availableModels, isProbing, devMode }: SettingsModalProps) {
+export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, availableModels, isProbing }: SettingsModalProps) {
   const [key, setKey] = useState(settings.apiKey);
   const [geminiKey, setGeminiKey] = useState(settings.geminiKey);
 
@@ -364,13 +363,12 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
           </div>
         </div>
 
-        {/* Advanced / System Prompt — only visible with ?devMode=true */}
-        {devMode && (
-          <div className="px-6 pb-6">
-            <div className="border border-amber-200/50 bg-amber-50/30 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[11px] font-semibold text-amber-600 uppercase tracking-wider">🛠 Dev Mode</span>
-              </div>
+        {/* Experimental section */}
+        <div className="px-6 pb-6">
+          <div className="border border-amber-200/50 bg-amber-50/30 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[11px] font-semibold text-amber-600 uppercase tracking-wider">🧪 Experimental</span>
+            </div>
               {/* Concept count */}
               <div className="mb-4">
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
@@ -435,9 +433,8 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
               <p className="mt-1.5 text-[10px] text-gray-500">
                 Prepended to every generation. Use for brand guidelines, design skills, or style overrides.
               </p>
-            </div>
           </div>
-        )}
+        </div>
 
         {/* Footer */}
         <div className="p-6 border-t border-gray-200/30 flex items-center justify-between">

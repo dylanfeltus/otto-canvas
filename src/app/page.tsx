@@ -38,7 +38,7 @@ export default function Home() {
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [quickMode, setQuickMode] = useState(false);
-  const [devMode, setDevMode] = useState(false);
+  const [showGitHash, setShowGitHash] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [commentDraft, setCommentDraft] = useState<{
     iterationId: string;
@@ -61,7 +61,7 @@ export default function Home() {
 
   // Dev mode from URL
   useEffect(() => {
-    setDevMode(new URLSearchParams(window.location.search).has("devMode"));
+    setShowGitHash(new URLSearchParams(window.location.search).has("devMode"));
   }, []);
 
   // Keyboard shortcuts
@@ -968,7 +968,7 @@ export default function Home() {
       </div>
 
       {/* Dev mode build badge */}
-      {devMode && (
+      {showGitHash && (
         <div className="fixed bottom-2 left-2 z-40 text-[9px] font-mono text-gray-400 bg-black/5 backdrop-blur-sm px-2 py-1 rounded-md select-all">
           {process.env.NEXT_PUBLIC_GIT_HASH}
         </div>
@@ -1026,7 +1026,6 @@ export default function Home() {
           isOwnKey={isOwnKey}
           availableModels={availableModels}
           isProbing={isProbing}
-          devMode={devMode}
         />
       )}
 
