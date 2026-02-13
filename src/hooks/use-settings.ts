@@ -15,7 +15,7 @@ export interface Settings {
 }
 
 const STORAGE_KEY = "otto-settings";
-const DEFAULT_MODEL = "claude-sonnet-4-5";
+const DEFAULT_MODEL = "claude-opus-4-6";
 
 export const MODELS = [
   { id: "claude-opus-4-6", label: "Opus 4.6", desc: "Best quality, slowest" },

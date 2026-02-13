@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 
 export const maxDuration = 300;
 
-const DEFAULT_MODEL = "claude-sonnet-4-5";
+const DEFAULT_MODEL = "claude-opus-4-6";
 
 // --- Clients ---
 
