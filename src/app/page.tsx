@@ -256,29 +256,27 @@ export default function Home() {
   const handleRemix = useCallback(
     async (sourceIteration: DesignIteration, remixPrompt: string) => {
       setIsGenerating(true);
-      const groupId = `remix-${Date.now()}`;
-      const iterationCount = 4;
-      const positions = getGridPositions(iterationCount);
+      const positions = getGridPositions(1);
+      const remixId = `remix-${Date.now()}`;
 
-      const placeholders: DesignIteration[] = Array.from(
-        { length: iterationCount },
-        (_, i) => ({
-          id: `${groupId}-iter-${i}`,
-          html: "",
-          label: `Remix ${i + 1}`,
-          position: positions[i],
-          width: sourceIteration.width || 400,
-          height: sourceIteration.height || 300,
-          prompt: remixPrompt,
-          comments: [],
-          isLoading: true,
-        })
-      );
+      const placeholder: DesignIteration = {
+        id: remixId,
+        html: "",
+        label: "Remixing...",
+        position: positions[0],
+        width: sourceIteration.width || 400,
+        height: sourceIteration.height || 300,
+        prompt: remixPrompt,
+        comments: [],
+        isLoading: true,
+      };
 
+      // Find the group this iteration belongs to, or create a new one
+      const sourceGroup = groups.find((g) => g.iterations.some((it) => it.id === sourceIteration.id));
       const newGroup: GenerationGroup = {
-        id: groupId,
+        id: `group-${remixId}`,
         prompt: `Remix: ${remixPrompt}`,
-        iterations: placeholders,
+        iterations: [placeholder],
         position: positions[0],
         createdAt: Date.now(),
       };
@@ -289,79 +287,54 @@ export default function Home() {
         const controller = new AbortController();
         abortRef.current = controller;
 
-        for (let i = 0; i < iterationCount; i++) {
-          if (controller.signal.aborted) break;
+        const res = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: sourceIteration.prompt,
+            revision: remixPrompt,
+            existingHtml: sourceIteration.html,
+            apiKey: settings.apiKey || undefined,
+            model: settings.model,
+          }),
+          signal: controller.signal,
+        });
 
-          const res = await fetch("/api/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              prompt: sourceIteration.prompt,
-              revision: remixPrompt,
-              existingHtml: sourceIteration.html,
-              variationIndex: i,
-              apiKey: settings.apiKey || undefined,
-              model: settings.model,
-            }),
-            signal: controller.signal,
-          });
-
-          if (!res.ok) {
-            const errData = await res.json().catch(() => ({}));
-            throw new Error(errData.error || "Remix failed");
-          }
-
-          const data = await res.json();
-          // Single variation mode returns { iteration }, revision mode returns { iterations: [result] }
-          const iter = data.iteration || data.iterations?.[0];
-
-          setGroups((prev) =>
-            prev.map((g) => {
-              if (g.id !== groupId) return g;
-              return {
-                ...g,
-                iterations: g.iterations.map((existing, idx) => {
-                  if (idx !== i) return existing;
-                  return {
-                    ...existing,
-                    html: iter?.html || "<p>Remix failed</p>",
-                    label: iter?.label || `Remix ${i + 1}`,
-                    width: iter?.width || existing.width,
-                    height: iter?.height || existing.height,
-                    isLoading: false,
-                  };
-                }),
-              };
-            })
-          );
-
-          if (i === 0) {
-            setTimeout(() => {
-              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-              positions.forEach((pos) => {
-                minX = Math.min(minX, pos.x);
-                minY = Math.min(minY, pos.y);
-                maxX = Math.max(maxX, pos.x + (sourceIteration.width || FRAME_WIDTH));
-                maxY = Math.max(maxY, pos.y + (sourceIteration.height || 400));
-              });
-              canvas.zoomToFit({ minX, minY, maxX, maxY });
-            }, 100);
-          }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Remix failed");
         }
+
+        const data = await res.json();
+        const iter = data.iteration || data.iterations?.[0];
+
+        setGroups((prev) =>
+          prev.map((g) => {
+            if (g.id !== newGroup.id) return g;
+            return {
+              ...g,
+              iterations: [{
+                ...placeholder,
+                html: iter?.html || "<p>Remix failed</p>",
+                label: iter?.label || "Remix",
+                width: iter?.width || placeholder.width,
+                height: iter?.height || placeholder.height,
+                isLoading: false,
+              }],
+            };
+          })
+        );
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {
-          setGroups((prev) => prev.filter((g) => g.id !== groupId));
+          setGroups((prev) => prev.filter((g) => g.id !== newGroup.id));
         } else {
           const msg = err instanceof Error ? err.message : "Remix failed";
           setGroups((prev) =>
             prev.map((g) => {
-              if (g.id !== groupId) return g;
+              if (g.id !== newGroup.id) return g;
               return {
                 ...g,
-                iterations: g.iterations.map((iter) => {
-                  if (!iter.isLoading) return iter;
-                  return { ...iter, html: `<div style="padding:32px;color:#666;font-family:system-ui"><p style="font-size:14px">⚠ ${msg}</p></div>`, isLoading: false };
-                }),
+                iterations: [{ ...placeholder, html: `<div style="padding:32px;color:#666;font-family:system-ui"><p style="font-size:14px">⚠ ${msg}</p></div>`, isLoading: false }],
               };
             })
           );
@@ -371,7 +344,7 @@ export default function Home() {
         setIsGenerating(false);
       }
     },
-    [getGridPositions, settings.apiKey, settings.model, canvas]
+    [getGridPositions, settings.apiKey, settings.model, groups]
   );
 
   const handleAddComment = useCallback(

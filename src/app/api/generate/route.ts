@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 // Fallback chain — if requested model fails, try next one down
 const MODEL_FALLBACK_CHAIN = [
