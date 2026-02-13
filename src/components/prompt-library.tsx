@@ -72,7 +72,7 @@ export function PromptLibrary({ open, onClose, onUsePrompt }: PromptLibraryProps
       {/* Slide-out panel */}
       <div className="fixed top-0 right-0 bottom-0 z-50 w-[400px] max-w-[85vw] bg-white/70 backdrop-blur-2xl border-l border-white/50 shadow-[-8px_0_40px_rgba(0,0,0,0.1)] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200/30 shrink-0">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200/30 shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-base">💡</span>
             <h2 className="text-[15px] font-semibold text-gray-800">Prompt Library</h2>
@@ -89,7 +89,7 @@ export function PromptLibrary({ open, onClose, onUsePrompt }: PromptLibraryProps
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
           {CATEGORIES.map((cat) => (
             <div key={cat.name}>
               <div className="flex items-center gap-2 mb-3">
