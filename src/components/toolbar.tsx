@@ -12,8 +12,10 @@ interface ToolbarProps {
   onResetView: () => void;
   onOpenSettings: () => void;
   onOpenLibrary: () => void;
+  onNewSession: () => void;
   isOwnKey: boolean;
   model: string;
+  hasFrames: boolean;
 }
 
 export function Toolbar({
@@ -25,8 +27,10 @@ export function Toolbar({
   onResetView,
   onOpenSettings,
   onOpenLibrary,
+  onNewSession,
   isOwnKey,
   model,
+  hasFrames,
 }: ToolbarProps) {
   const modelLabel = MODELS.find((m) => m.id === model)?.label || "Sonnet 4.5";
 
@@ -88,6 +92,15 @@ export function Toolbar({
           <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
         </svg>
       </ToolButton>
+
+      {/* New session */}
+      {hasFrames && (
+        <ToolButton onClick={onNewSession} title="New Session">
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </ToolButton>
+      )}
 
       <div className="w-px h-5 bg-white/15 mx-1" />
 

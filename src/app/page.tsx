@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type RefCallback } from "reac
 import { useCanvas } from "@/hooks/use-canvas";
 import { useSettings } from "@/hooks/use-settings";
 import { DesignCard, FRAME_WIDTH } from "@/components/design-card";
+import { usePersistedGroups } from "@/hooks/use-persisted-groups";
 import { PromptBar } from "@/components/prompt-bar";
 import { Toolbar } from "@/components/toolbar";
 import { CommentInput } from "@/components/comment-input";
@@ -25,7 +26,8 @@ export default function Home() {
     canvasElRef.current = el;
     canvas.setCanvasRef(el);
   }, [canvas.setCanvasRef]);
-  const [groups, setGroups] = useState<GenerationGroup[]>([]);
+  const { groups, setGroups, resetSession } = usePersistedGroups();
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [toolMode, setToolMode] = useState<ToolMode>("select");
   const [isGenerating, setIsGenerating] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -85,9 +87,6 @@ export default function Home() {
   const COLS = 2;
   const GRID_WIDTH = COLS * FRAME_WIDTH + (COLS - 1) * H_GAP; // 480 + 60 + 480 = 1020
 
-  // Track the lowest Y of all placed groups for stacking
-  const lowestYRef = useRef(0);
-
   const getGridPositions = useCallback(
     (count: number): Point[] => {
       const vw = window.innerWidth;
@@ -99,16 +98,17 @@ export default function Home() {
         // First generation — center in viewport
         startX = (vw / 2 - canvas.offset.x) / canvas.scale - GRID_WIDTH / 2;
         startY = (100 - canvas.offset.y) / canvas.scale;
-        lowestYRef.current = 0;
       } else {
-        // Subsequent — align X with first group, Y below everything
+        // Compute lowest Y from all existing iterations
+        let maxBottom = 0;
+        for (const g of groups) {
+          for (const iter of g.iterations) {
+            maxBottom = Math.max(maxBottom, iter.position.y + ROW_HEIGHT);
+          }
+        }
         startX = groups[0].iterations[0]?.position.x ?? 0;
-        startY = lowestYRef.current + GROUP_GAP;
+        startY = maxBottom + GROUP_GAP;
       }
-
-      const rows = Math.ceil(count / COLS);
-      // Update lowestY for next generation
-      lowestYRef.current = startY + rows * (ROW_HEIGHT + V_GAP);
 
       return Array.from({ length: count }, (_, i) => ({
         x: startX + (i % COLS) * (FRAME_WIDTH + H_GAP),
@@ -464,8 +464,10 @@ export default function Home() {
         onResetView={canvas.resetView}
         onOpenSettings={() => setShowSettings(true)}
         onOpenLibrary={() => setShowLibrary(true)}
+        onNewSession={() => setShowResetConfirm(true)}
         isOwnKey={isOwnKey}
         model={settings.model}
+        hasFrames={groups.length > 0}
       />
 
       <PromptBar onSubmit={handleGenerate} isGenerating={isGenerating} onCancel={() => abortRef.current?.abort()} />
@@ -523,6 +525,35 @@ export default function Home() {
           availableModels={availableModels}
           isProbing={isProbing}
         />
+      )}
+
+      {/* Reset confirm dialog */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowResetConfirm(false)} />
+          <div className="relative bg-white/60 backdrop-blur-2xl rounded-2xl border border-white/60 shadow-[0_24px_80px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.7)] p-8 w-[380px] max-w-[90vw] text-center">
+            <h3 className="text-[15px] font-semibold text-gray-800 mb-2">Start new session?</h3>
+            <p className="text-[13px] text-gray-500 mb-6">This will clear your current canvas. Generated designs will be lost.</p>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="text-[13px] font-medium text-gray-600 hover:text-gray-800 px-5 py-2.5 rounded-xl hover:bg-black/5 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  resetSession();
+                  canvas.resetView();
+                  setShowResetConfirm(false);
+                }}
+                className="text-[13px] font-medium text-white bg-red-500/90 hover:bg-red-500 px-5 py-2.5 rounded-xl transition-all"
+              >
+                Clear Canvas
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
