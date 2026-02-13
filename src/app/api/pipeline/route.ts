@@ -167,6 +167,8 @@ async function generateRevision(
     ? `\n\nADDITIONAL INSTRUCTIONS FROM USER:\n${systemPrompt}\n`
     : "";
 
+  const { stripped: strippedHtml, restore } = stripBase64Images(existingHtml);
+
   const message = await client.messages.create({
     model,
     max_tokens: 8192,
@@ -177,7 +179,9 @@ async function generateRevision(
 
 Here is the EXISTING HTML design:
 
-${existingHtml}
+${strippedHtml}
+
+Note: [IMAGE_PLACEHOLDER_N] references are real images — keep all <img> tags and their src attributes exactly as-is.
 
 The original request was: "${originalPrompt}"
 
@@ -207,7 +211,8 @@ OUTPUT: HTML only — no explanation, no markdown, no code fences. ALL CSS in a 
   });
 
   const raw = message.content[0].type === "text" ? message.content[0].text : "";
-  return parseHtmlWithSize(raw);
+  const parsed = parseHtmlWithSize(raw);
+  return { ...parsed, html: restore(parsed.html) };
 }
 
 /** Parse placeholder elements from HTML */

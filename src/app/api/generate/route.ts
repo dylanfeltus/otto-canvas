@@ -201,6 +201,19 @@ async function generateSingle(
     ? `\n\nStyle direction for THIS variation: ${styleVariation}\nMake this variation feel distinctly different from others while keeping the same concept and revision.`
     : "";
 
+  // Strip base64 images to avoid token explosion
+  const imageStore: string[] = [];
+  const strippedHtml = existingHtml.replace(/src="(data:image\/[^"]+)"/g, (_m, uri) => {
+    const idx = imageStore.length;
+    imageStore.push(uri);
+    return `src="[IMAGE_PLACEHOLDER_${idx}]"`;
+  });
+  const restoreImages = (output: string) => {
+    let r = output;
+    for (let i = 0; i < imageStore.length; i++) r = r.replace(`[IMAGE_PLACEHOLDER_${i}]`, imageStore[i]);
+    return r;
+  };
+
   const { result: message } = await callWithFallback(client, model, [
     {
       role: "user",
@@ -208,7 +221,9 @@ async function generateSingle(
 
 Here is the EXISTING HTML design:
 
-${existingHtml}
+${strippedHtml}
+
+Note: [IMAGE_PLACEHOLDER_N] references are real images — keep all <img> tags and their src attributes exactly as-is.
 
 The original request was: "${originalPrompt}"
 
@@ -240,7 +255,7 @@ OUTPUT FORMAT:
 
   const parsed = parseHtmlWithSize(html);
   return {
-    html: parsed.html,
+    html: restoreImages(parsed.html),
     label: variationIndex !== undefined ? `Remix ${variationIndex + 1}` : "Revised",
     width: parsed.width,
     height: parsed.height,
