@@ -628,11 +628,20 @@ export async function POST(req: NextRequest) {
 
 function parseHtmlWithSize(raw: string): { html: string; width?: number; height?: number } {
   let cleaned = raw.trim();
+  
+  // Strip code fences
   if (cleaned.startsWith("```")) {
     cleaned = cleaned.replace(/^```(?:html)?\n?/, "").replace(/\n?```$/, "");
   }
+  // Also handle code fences in the middle (Claude sometimes adds explanation before/after)
+  const fenceMatch = cleaned.match(/```(?:html)?\n?([\s\S]*?)\n?```/);
+  if (fenceMatch) {
+    cleaned = fenceMatch[1];
+  }
+  
   cleaned = cleaned.trim();
 
+  // Extract size comment
   const sizeMatch = cleaned.match(/<!--size:(\d+)x(\d+)-->/);
   let width: number | undefined;
   let height: number | undefined;
@@ -643,5 +652,17 @@ function parseHtmlWithSize(raw: string): { html: string; width?: number; height?
     cleaned = cleaned.replace(/<!--size:\d+x\d+-->\n?/, "").trim();
   }
 
-  return { html: cleaned, width, height };
+  // Strip any text before the first HTML tag (Claude explanation text)
+  const htmlStart = cleaned.match(/^[\s\S]*?(<(?:!DOCTYPE|html|head|style|div|section|main|body|meta|link)[>\s])/i);
+  if (htmlStart && htmlStart.index !== undefined && htmlStart.index > 0) {
+    cleaned = cleaned.substring(htmlStart.index);
+  }
+  
+  // Strip any text after the last closing HTML tag
+  const lastTagMatch = cleaned.match(/([\s\S]*<\/(?:html|div|section|main|body)>)/i);
+  if (lastTagMatch) {
+    cleaned = lastTagMatch[1];
+  }
+
+  return { html: cleaned.trim(), width, height };
 }
