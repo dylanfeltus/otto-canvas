@@ -70,7 +70,7 @@ export function PromptLibrary({ open, onClose, onUsePrompt }: PromptLibraryProps
       <div className="fixed inset-0 z-40" onClick={onClose} />
 
       {/* Slide-out panel */}
-      <div className="fixed top-0 right-0 bottom-0 z-50 w-[400px] max-w-[85vw] bg-white/70 backdrop-blur-2xl border-l border-white/50 shadow-[-8px_0_40px_rgba(0,0,0,0.1)] flex flex-col">
+      <div className="fixed top-3 right-3 bottom-3 z-50 w-[400px] max-w-[85vw] bg-white/70 backdrop-blur-2xl border border-white/50 rounded-2xl shadow-[-8px_0_40px_rgba(0,0,0,0.1)] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200/30 shrink-0">
           <div className="flex items-center gap-2">
