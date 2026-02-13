@@ -1,6 +1,22 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+
+const HISTORY_KEY = "otto-prompt-history";
+const MAX_HISTORY = 50;
+
+function loadHistory(): string[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveHistory(history: string[]): void {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
+  } catch {}
+}
 
 interface PromptBarProps {
   onSubmit: (prompt: string) => void;
@@ -10,14 +26,77 @@ interface PromptBarProps {
 
 export function PromptBar({ onSubmit, isGenerating, onCancel }: PromptBarProps) {
   const [value, setValue] = useState("");
+  const [history, setHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1); // -1 = current input, 0 = most recent, etc.
+  const [draft, setDraft] = useState(""); // saves current input when browsing history
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = () => {
+  // Load history on mount
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
+
+  const handleSubmit = useCallback(() => {
     const trimmed = value.trim();
     if (!trimmed || isGenerating) return;
+
+    // Add to history (avoid duplicates at the top)
+    const newHistory = [trimmed, ...history.filter((h) => h !== trimmed)].slice(0, MAX_HISTORY);
+    setHistory(newHistory);
+    saveHistory(newHistory);
+
     onSubmit(trimmed);
     setValue("");
-  };
+    setHistoryIndex(-1);
+    setDraft("");
+  }, [value, isGenerating, history, onSubmit]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSubmit();
+      return;
+    }
+
+    if (e.key === "Escape" && isGenerating) {
+      onCancel?.();
+      return;
+    }
+
+    const input = inputRef.current;
+    if (!input) return;
+
+    // Up arrow at start of input → browse history backwards
+    if (e.key === "ArrowUp" && input.selectionStart === 0 && input.selectionEnd === 0) {
+      e.preventDefault();
+      if (history.length === 0) return;
+
+      const newIndex = historyIndex + 1;
+      if (newIndex >= history.length) return;
+
+      // Save current input as draft when first entering history
+      if (historyIndex === -1) {
+        setDraft(value);
+      }
+
+      setHistoryIndex(newIndex);
+      setValue(history[newIndex]);
+    }
+
+    // Down arrow at end of input → browse history forwards
+    if (e.key === "ArrowDown" && input.selectionStart === value.length && input.selectionEnd === value.length) {
+      e.preventDefault();
+      if (historyIndex <= -1) return;
+
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+
+      if (newIndex === -1) {
+        setValue(draft);
+      } else {
+        setValue(history[newIndex]);
+      }
+    }
+  }, [handleSubmit, isGenerating, onCancel, history, historyIndex, value, draft]);
 
   return (
     <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
@@ -26,11 +105,8 @@ export function PromptBar({ onSubmit, isGenerating, onCancel }: PromptBarProps) 
           ref={inputRef}
           type="text"
           value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSubmit();
-            if (e.key === "Escape" && isGenerating) onCancel?.();
-          }}
+          onChange={(e) => { setValue(e.target.value); setHistoryIndex(-1); }}
+          onKeyDown={handleKeyDown}
           placeholder="Describe a design..."
           className="flex-1 px-0 py-2 text-[15px] text-gray-800 placeholder-gray-400/70 bg-transparent outline-none"
         />
