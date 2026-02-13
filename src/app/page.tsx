@@ -229,6 +229,20 @@ export default function Home() {
               };
             })
           );
+
+          // Zoom to fit all frames so far
+          setTimeout(() => {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (let j = 0; j <= i; j++) {
+              const w = (j === i ? iter?.width : undefined) || FRAME_WIDTH;
+              const h = (j === i ? iter?.height : undefined) || 400;
+              minX = Math.min(minX, positions[j].x);
+              minY = Math.min(minY, positions[j].y);
+              maxX = Math.max(maxX, positions[j].x + w);
+              maxY = Math.max(maxY, positions[j].y + h);
+            }
+            canvas.zoomToFit({ minX, minY, maxX, maxY });
+          }, 150);
         }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {
@@ -262,7 +276,7 @@ export default function Home() {
         setIsGenerating(false);
       }
     },
-    [getGridPositions]
+    [getGridPositions, settings.apiKey, settings.model, canvas]
   );
 
   const handleRemix = useCallback(
