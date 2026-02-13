@@ -25,27 +25,23 @@ export function PipelineStatusOverlay({ status, x, y, width, frameHeight }: Pipe
       className="absolute pointer-events-none"
       style={{ left: x, top: topOffset, width }}
     >
-      <div className="flex items-center gap-2">
-        <div className="flex-1 h-1 rounded-full bg-black/[0.04] overflow-hidden">
-          {!isQueued && (
-            <div
-              className={`h-full rounded-full transition-all duration-700 ease-out ${
-                isError
-                  ? "bg-red-400"
-                  : "bg-gradient-to-r from-blue-400 to-violet-400"
-              } ${status.stage === "layout" || status.stage === "images" ? "animate-pulse" : ""}`}
-              style={{ width: `${Math.max(status.progress * 100, 5)}%` }}
-            />
-          )}
-        </div>
-        <span
-          className={`text-[10px] font-medium whitespace-nowrap ${
-            isError ? "text-red-400" : status.skipped ? "text-amber-400/80" : "text-gray-400/70"
-          }`}
-        >
-          {status.skipped ? `⏭ ${status.reason || "Skipped"}` : config.label}
-        </span>
+      <div className="h-1 rounded-full bg-black/[0.04] overflow-hidden">
+        {!isQueued && (
+          <div
+            className={`h-full rounded-full transition-all duration-700 ease-out ${
+              isError
+                ? "bg-red-400"
+                : "bg-gradient-to-r from-blue-400 to-violet-400"
+            } ${status.stage === "layout" || status.stage === "images" ? "animate-pulse" : ""}`}
+            style={{ width: `${Math.max(status.progress * 100, 5)}%` }}
+          />
+        )}
       </div>
+      {status.skipped && (
+        <span className="text-[10px] font-medium text-amber-400/80 whitespace-nowrap mt-1">
+          ⏭ {status.reason || "Skipped"}
+        </span>
+      )}
     </div>
   );
 }

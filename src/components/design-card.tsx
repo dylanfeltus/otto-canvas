@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { DesignIteration, Comment as CommentType, Point } from "@/lib/types";
+import type { PipelineStatus } from "@/lib/pipeline";
+import { STAGE_CONFIG } from "@/lib/pipeline";
 import { ExportMenu } from "./export-menu";
 
 export const DEFAULT_FRAME_WIDTH = 480;
@@ -22,6 +24,7 @@ interface DesignCardProps {
   scale: number;
   apiKey?: string;
   model?: string;
+  pipelineStatus?: PipelineStatus;
 }
 
 const REMIX_PRESETS = [
@@ -46,6 +49,7 @@ export function DesignCard({
   scale,
   apiKey,
   model,
+  pipelineStatus,
 }: DesignCardProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -132,14 +136,6 @@ setTimeout(reportHeight, 1500);
         <span className="text-xs font-medium text-gray-500/80 bg-white/60 backdrop-blur-sm px-2.5 py-0.5 rounded-lg border border-white/40">
           {iteration.label}
         </span>
-        {iteration.isRegenerating && (
-          <span className="text-xs text-blue-500 font-medium animate-pulse flex items-center gap-1">
-            <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="60" strokeDashoffset="20" strokeLinecap="round" />
-            </svg>
-            Revising...
-          </span>
-        )}
         {!iteration.isLoading && iteration.html && (
           <div className="ml-auto flex items-center gap-1 opacity-0 group-hover/label:opacity-100 transition-opacity">
             <RemixButton iteration={iteration} onRemix={onRemix} />
@@ -167,9 +163,24 @@ setTimeout(reportHeight, 1500);
         style={{ width: iteration.width || FRAME_WIDTH, height: frameHeight }}
       >
         {iteration.isLoading ? (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-3">
-            <div className="loading-spinner" />
-            <span className="text-[12px] font-medium text-gray-400">Generating...</span>
+          <div className="w-full h-full flex flex-col items-center justify-center gap-4">
+            <div className="relative w-10 h-10">
+              <svg className="w-10 h-10 animate-spin" viewBox="0 0 40 40" fill="none">
+                <circle cx="20" cy="20" r="16" stroke="#e5e7eb" strokeWidth="3" />
+                <circle cx="20" cy="20" r="16" stroke="url(#spinner-gradient)" strokeWidth="3" strokeDasharray="80" strokeDashoffset="60" strokeLinecap="round" />
+                <defs>
+                  <linearGradient id="spinner-gradient" x1="0" y1="0" x2="40" y2="40">
+                    <stop offset="0%" stopColor="#8b5cf6" />
+                    <stop offset="100%" stopColor="#3b82f6" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+            <span className="text-[12px] font-medium text-gray-400">
+              {pipelineStatus && pipelineStatus.stage !== "done" && pipelineStatus.stage !== "error"
+                ? STAGE_CONFIG[pipelineStatus.stage].label
+                : "Generating..."}
+            </span>
           </div>
         ) : (
           <iframe

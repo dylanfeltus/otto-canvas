@@ -948,6 +948,7 @@ export default function Home() {
               scale={canvas.scale}
               apiKey={settings.apiKey || undefined}
               model={settings.model}
+              pipelineStatus={pipelineStages[iteration.id]}
             />
           ))}
 
