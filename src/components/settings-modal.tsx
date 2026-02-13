@@ -170,6 +170,7 @@ interface SettingsModalProps {
 
 export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, availableModels, isProbing, devMode }: SettingsModalProps) {
   const [key, setKey] = useState(settings.apiKey);
+  const [geminiKey, setGeminiKey] = useState(settings.geminiKey);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -316,6 +317,51 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
               </p>
             )}
           </div>
+
+          {/* Gemini API Key — for image generation pipeline */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-[12px] font-medium text-gray-500 uppercase tracking-wider">
+                🎨 Gemini API Key <span className="text-[10px] font-normal text-gray-400">(image generation)</span>
+              </label>
+              {settings.geminiKey && (
+                <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50/80 px-2 py-0.5 rounded-full">
+                  Connected
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={geminiKey}
+                onChange={(e) => setGeminiKey(e.target.value)}
+                placeholder="AIza..."
+                className="flex-1 text-[13px] text-gray-800 placeholder-gray-400/50 bg-white/70 backdrop-blur-sm rounded-xl px-5 py-3.5 outline-none border border-white/50 focus:border-blue-300/60 focus:bg-white/90 transition-all font-mono"
+              />
+              {geminiKey && geminiKey !== settings.geminiKey && (
+                <button
+                  onClick={() => onUpdate({ geminiKey: geminiKey.trim() })}
+                  className="text-[12px] font-medium text-white bg-blue-500/90 hover:bg-blue-500 px-4 py-2.5 rounded-xl transition-all shrink-0"
+                >
+                  Save
+                </button>
+              )}
+            </div>
+            {settings.geminiKey && (
+              <button
+                onClick={() => { setGeminiKey(""); onUpdate({ geminiKey: "" }); }}
+                className="mt-2 text-[11px] text-gray-500 hover:text-red-500 transition-colors"
+              >
+                Remove Gemini key
+              </button>
+            )}
+            <p className="mt-2 text-[11px] text-gray-500 leading-relaxed">
+              Enables AI image generation in the pipeline. Get a free key at{" "}
+              <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                aistudio.google.com
+              </a>. Without this, designs use CSS placeholders for images.
+            </p>
+          </div>
         </div>
 
         {/* Advanced / System Prompt — only visible with ?devMode=true */}
@@ -396,14 +442,15 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
         {/* Footer */}
         <div className="p-6 border-t border-gray-200/30 flex items-center justify-between">
           <span className="text-[11px] text-gray-500">
-            {isOwnKey ? "🔑 Own key" : "🌐 Demo key"} · {MODELS.find((m) => m.id === settings.model)?.label}
+            {isOwnKey ? "🔑 Own key" : "🌐 Demo key"} · {MODELS.find((m) => m.id === settings.model)?.label}{settings.geminiKey ? " · 🎨 Gemini" : ""}
           </span>
           <button
             onClick={() => {
-              // Auto-save key if changed
-              if (key.trim() !== settings.apiKey) {
-                onUpdate({ apiKey: key.trim() });
-              }
+              // Auto-save keys if changed
+              const updates: Partial<Settings> = {};
+              if (key.trim() !== settings.apiKey) updates.apiKey = key.trim();
+              if (geminiKey.trim() !== settings.geminiKey) updates.geminiKey = geminiKey.trim();
+              if (Object.keys(updates).length) onUpdate(updates);
               onClose();
             }}
             className="text-[13px] font-medium text-gray-600 hover:text-gray-800 px-4 py-2 rounded-xl hover:bg-black/5 transition-all"

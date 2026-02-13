@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 
 export interface Settings {
   apiKey: string;
+  geminiKey: string;
   model: string;
   systemPrompt: string;
   systemPromptPreset: string;
@@ -24,6 +25,7 @@ export const MODELS = [
 export function useSettings() {
   const [settings, setSettingsState] = useState<Settings>({
     apiKey: "",
+    geminiKey: "",
     model: DEFAULT_MODEL,
     systemPrompt: "",
     systemPromptPreset: "custom",
@@ -39,6 +41,7 @@ export function useSettings() {
         const parsed = JSON.parse(raw);
         setSettingsState({
           apiKey: parsed.apiKey || "",
+          geminiKey: parsed.geminiKey || "",
           model: parsed.model || DEFAULT_MODEL,
           systemPrompt: parsed.systemPrompt || "",
           systemPromptPreset: parsed.systemPromptPreset || "custom",
@@ -60,6 +63,7 @@ export function useSettings() {
   }, []);
 
   const isOwnKey = !!settings.apiKey;
+  const hasGeminiKey = !!settings.geminiKey;
 
   // All models always available — errors show at generation time
   const availableModels: Record<string, boolean> = {};
@@ -67,5 +71,5 @@ export function useSettings() {
     availableModels[m.id] = true;
   }
 
-  return { settings, setSettings, isOwnKey, loaded, availableModels, isProbing: false };
+  return { settings, setSettings, isOwnKey, hasGeminiKey, loaded, availableModels, isProbing: false };
 }

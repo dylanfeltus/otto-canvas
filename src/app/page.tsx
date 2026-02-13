@@ -10,6 +10,8 @@ import { Toolbar } from "@/components/toolbar";
 import { CommentInput } from "@/components/comment-input";
 import { SettingsModal } from "@/components/settings-modal";
 import { PromptLibrary } from "@/components/prompt-library";
+import { PipelineStatusOverlay } from "@/components/pipeline-status";
+import type { PipelineStatus } from "@/lib/pipeline";
 import type {
   DesignIteration,
   GenerationGroup,
@@ -20,7 +22,7 @@ import type {
 
 export default function Home() {
   const canvas = useCanvas();
-  const { settings, setSettings, isOwnKey, availableModels, isProbing } = useSettings();
+  const { settings, setSettings, isOwnKey, hasGeminiKey, availableModels, isProbing } = useSettings();
   const canvasElRef = useRef<HTMLDivElement | null>(null);
   const combinedCanvasRef: RefCallback<HTMLDivElement> = useCallback((el) => {
     canvasElRef.current = el;
@@ -30,10 +32,12 @@ export default function Home() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [toolMode, setToolMode] = useState<ToolMode>("select");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [pipelineStages, setPipelineStages] = useState<Record<string, PipelineStatus>>({});
   const [genStatus, setGenStatus] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [quickMode, setQuickMode] = useState(false);
   const [devMode, setDevMode] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [commentDraft, setCommentDraft] = useState<{
@@ -203,6 +207,99 @@ export default function Home() {
     input.click();
   }, []);
 
+  // Variation styles for the pipeline
+  const VARIATION_STYLES = [
+    "Refined and premium — think Stripe or Linear. Subtle gradients, generous whitespace, sophisticated color palette",
+    "Bold and expressive — vibrant colors, large confident typography, strong visual hierarchy, creative shapes",
+    "Warm and approachable — friendly rounded shapes, warm color palette, inviting feel, human-centered",
+    "Dark and dramatic — dark backgrounds, glowing accents, cinematic feel, high contrast, moody atmosphere",
+  ];
+
+  /** Process a single frame through the SSE pipeline */
+  const runPipelineForFrame = useCallback(
+    async (
+      iterId: string,
+      prompt: string,
+      style: string,
+      index: number,
+      critique: string | undefined,
+      signal: AbortSignal,
+    ): Promise<{ html: string; label: string; width?: number; height?: number; critique?: string }> => {
+
+      const res = await fetch("/api/pipeline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          style,
+          index,
+          model: settings.model,
+          apiKey: settings.apiKey || undefined,
+          geminiKey: settings.geminiKey || undefined,
+          systemPrompt: settings.systemPrompt || undefined,
+          critique,
+          enableImages: !!settings.geminiKey,
+          enableQA: true,
+        }),
+        signal,
+      });
+
+      if (!res.ok) throw new Error("Pipeline request failed");
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let result: { html: string; label: string; width?: number; height?: number } | null = null;
+      let critiqueText: string | undefined;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+
+            if (event.type === "stage") {
+              setPipelineStages((prev) => ({
+                ...prev,
+                [iterId]: { stage: event.stage, progress: event.progress },
+              }));
+            } else if (event.type === "result") {
+              result = {
+                html: event.html,
+                label: event.label,
+                width: event.width,
+                height: event.height,
+              };
+            } else if (event.type === "critique") {
+              critiqueText = event.critique;
+            } else if (event.type === "error") {
+              throw new Error(event.message);
+            }
+          } catch (e) {
+            if (e instanceof Error && e.message !== "Pipeline failed") {
+              // JSON parse error — skip malformed line
+            } else {
+              throw e;
+            }
+          }
+        }
+      }
+
+      if (!result) throw new Error("No result from pipeline");
+      return { ...result, critique: critiqueText };
+    },
+    [settings.apiKey, settings.model, settings.systemPrompt, settings.geminiKey]
+  );
+
   const handleGenerate = useCallback(
     async (prompt: string) => {
       setIsGenerating(true);
@@ -214,7 +311,6 @@ export default function Home() {
         const controller = new AbortController();
         abortRef.current = controller;
 
-        // Planning call — model decides how many concepts
         let iterationCount = settings.conceptCount || 4;
         let concepts: string[] = [];
 
@@ -227,7 +323,6 @@ export default function Home() {
           });
           if (planRes.ok) {
             const plan = await planRes.json();
-            // User count takes priority; planner provides concepts
             concepts = (plan.concepts || []).slice(0, iterationCount);
           }
         } catch {
@@ -246,14 +341,17 @@ export default function Home() {
 
         setGroups((prev) => [...prev, newGroup]);
 
-        // Generate sequentially — show one loading placeholder at a time
+        // Create all loading placeholders upfront
+        const iterIds: string[] = [];
         for (let i = 0; i < iterationCount; i++) {
-          setGenStatus(`Designing ${i + 1} of ${iterationCount}…`);
-          if (controller.signal.aborted) break;
-
           const iterId = `${groupId}-iter-${i}`;
+          iterIds.push(iterId);
 
-          // Add loading placeholder for this variation
+          setPipelineStages((prev) => ({
+            ...prev,
+            [iterId]: { stage: quickMode ? "layout" : (i === 0 ? "layout" : "queued"), progress: i === 0 ? 0.2 : 0 },
+          }));
+
           setGroups((prev) =>
             prev.map((g) => {
               if (g.id !== groupId) return g;
@@ -276,29 +374,10 @@ export default function Home() {
               };
             })
           );
+        }
 
-          const res = await fetch("/api/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              prompt,
-              variationIndex: i,
-              concept: concepts[i] || undefined,
-              apiKey: settings.apiKey || undefined,
-              model: settings.model, systemPrompt: settings.systemPrompt || undefined,
-            }),
-            signal: controller.signal,
-          });
-
-          if (!res.ok) {
-            const errData = await res.json().catch(() => ({}));
-            throw new Error(errData.error || "Generation failed");
-          }
-
-          const data = await res.json();
-          const iter = data.iteration;
-
-          // Replace placeholder with completed result
+        const completeFrame = (iterId: string, result: { html: string; label: string; width?: number; height?: number }, index: number) => {
+          setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "done", progress: 1 } }));
           setGroups((prev) =>
             prev.map((g) => {
               if (g.id !== groupId) return g;
@@ -308,10 +387,10 @@ export default function Home() {
                   if (existing.id !== iterId) return existing;
                   return {
                     ...existing,
-                    html: iter?.html || "<p>Failed to generate</p>",
-                    label: iter?.label || existing.label,
-                    width: iter?.width || existing.width,
-                    height: iter?.height || existing.height,
+                    html: result.html || "<p>Failed to generate</p>",
+                    label: result.label || existing.label,
+                    width: result.width || existing.width,
+                    height: result.height || existing.height,
                     isLoading: false,
                   };
                 }),
@@ -319,12 +398,12 @@ export default function Home() {
             })
           );
 
-          // Zoom to fit all frames so far
+          // Zoom to fit
           setTimeout(() => {
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            for (let j = 0; j <= i; j++) {
-              const w = (j === i ? iter?.width : undefined) || FRAME_WIDTH;
-              const h = (j === i ? iter?.height : undefined) || 400;
+            for (let j = 0; j <= index; j++) {
+              const w = (j === index ? result.width : undefined) || FRAME_WIDTH;
+              const h = (j === index ? result.height : undefined) || 400;
               minX = Math.min(minX, positions[j].x);
               minY = Math.min(minY, positions[j].y);
               maxX = Math.max(maxX, positions[j].x + w);
@@ -332,27 +411,112 @@ export default function Home() {
             }
             canvas.zoomToFit({ minX, minY, maxX, maxY });
           }, 150);
+        };
+
+        if (quickMode) {
+          // Quick mode: run all frames in parallel, no critique
+          setGenStatus(`Running ${iterationCount} frames in parallel…`);
+          const results = await Promise.allSettled(
+            iterIds.map((iterId, i) =>
+              runPipelineForFrame(
+                iterId,
+                prompt,
+                concepts[i] || VARIATION_STYLES[i % VARIATION_STYLES.length],
+                i,
+                undefined,
+                controller.signal,
+              ).then((result) => {
+                completeFrame(iterId, result, i);
+                return result;
+              })
+            )
+          );
+
+          results.forEach((r, i) => {
+            if (r.status === "rejected") {
+              const msg = r.reason instanceof Error ? r.reason.message : "Failed";
+              setPipelineStages((prev) => ({ ...prev, [iterIds[i]]: { stage: "error", progress: 0 } }));
+              completeFrame(iterIds[i], {
+                html: `<div style="padding:32px;color:#666;font-family:system-ui"><p style="font-size:14px">⚠ ${msg}</p></div>`,
+                label: `Variation ${i + 1}`,
+              }, i);
+            }
+          });
+
+        } else {
+          // Sequential critique loop: each frame improves on the last
+          let critique: string | undefined;
+
+          for (let i = 0; i < iterationCount; i++) {
+            if (controller.signal.aborted) break;
+            const iterId = iterIds[i];
+
+            setGenStatus(
+              critique
+                ? `Designing ${i + 1} of ${iterationCount} (with feedback)…`
+                : `Designing ${i + 1} of ${iterationCount}…`
+            );
+
+            setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "layout", progress: 0.2 } }));
+
+            try {
+              const result = await runPipelineForFrame(
+                iterId,
+                prompt,
+                concepts[i] || VARIATION_STYLES[i % VARIATION_STYLES.length],
+                i,
+                critique,
+                controller.signal,
+              );
+
+              completeFrame(iterId, result, i);
+              critique = result.critique;
+
+              if (i + 1 < iterationCount) {
+                setPipelineStages((prev) => ({
+                  ...prev,
+                  [iterIds[i + 1]]: { stage: "refining", progress: 0.05 },
+                }));
+              }
+            } catch (err) {
+              if (err instanceof Error && err.name === "AbortError") throw err;
+              const msg = err instanceof Error ? err.message : "Failed";
+              setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "error", progress: 0 } }));
+              completeFrame(iterId, {
+                html: `<div style="padding:32px;color:#666;font-family:system-ui"><p style="font-size:14px">⚠ ${msg}</p></div>`,
+                label: `Variation ${i + 1}`,
+              }, i);
+            }
+          }
         }
+
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {
-          // Keep completed iterations, remove any still-loading ones
           setGroups((prev) =>
             prev.map((g) => {
               if (g.id !== groupId) return g;
-              return { ...g, iterations: g.iterations.filter((iter) => !iter.isLoading) };
+              const kept = g.iterations.filter((iter) => !iter.isLoading);
+              const removedIds = g.iterations.filter((iter) => iter.isLoading).map((iter) => iter.id);
+              if (removedIds.length) {
+                setPipelineStages((prev) => {
+                  const next = { ...prev };
+                  removedIds.forEach((id) => delete next[id]);
+                  return next;
+                });
+              }
+              return { ...g, iterations: kept };
             }).filter((g) => g.iterations.length > 0)
           );
         } else {
           const msg = err instanceof Error ? err.message : "Generation failed";
           console.error("Generation failed:", msg);
-          // Mark remaining loading iterations as failed
           setGroups((prev) =>
             prev.map((g) => {
               if (g.id !== groupId) return g;
               return {
                 ...g,
                 iterations: g.iterations.map((iter) => {
-                  if (!iter.isLoading) return iter; // already completed
+                  if (!iter.isLoading) return iter;
                   return {
                     ...iter,
                     html: `<div style="padding:32px;color:#666;font-family:system-ui">
@@ -372,7 +536,7 @@ export default function Home() {
         setGenStatus("");
       }
     },
-    [getGridPositions, settings.apiKey, settings.model, canvas]
+    [getGridPositions, settings, canvas, quickMode, runPipelineForFrame]
   );
 
   const handleRemix = useCallback(
@@ -735,6 +899,22 @@ export default function Home() {
               model={settings.model}
             />
           ))}
+
+          {/* Pipeline status overlays */}
+          {allIterations.map((iteration) => {
+            const status = pipelineStages[iteration.id];
+            if (!status || status.stage === "done") return null;
+            return (
+              <PipelineStatusOverlay
+                key={`pipeline-${iteration.id}`}
+                status={status}
+                x={iteration.position.x}
+                y={iteration.position.y}
+                width={iteration.width || FRAME_WIDTH}
+                frameHeight={iteration.isLoading ? 320 : (iteration.height || 320)}
+              />
+            );
+          })}
         </div>
 
         {/* Empty state */}
@@ -771,6 +951,21 @@ export default function Home() {
       />
 
       <PromptBar onSubmit={handleGenerate} isGenerating={isGenerating} genStatus={genStatus} onCancel={() => abortRef.current?.abort()} />
+
+      {/* Quick Mode toggle — above prompt bar */}
+      <div className="fixed bottom-[110px] left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+        <button
+          onClick={() => setQuickMode(!quickMode)}
+          className={`pointer-events-auto text-[11px] font-medium px-3 py-1.5 rounded-full transition-all backdrop-blur-sm border ${
+            quickMode
+              ? "bg-amber-500/20 text-amber-700 border-amber-300/40"
+              : "bg-white/20 text-gray-500 border-white/30 hover:bg-white/40"
+          }`}
+          title={quickMode ? "Quick Mode: parallel, no critique" : "Standard: sequential with critique loop"}
+        >
+          {quickMode ? "⚡ Quick Mode" : "🔄 Critique Loop"}
+        </button>
+      </div>
 
       {/* Dev mode build badge */}
       {devMode && (
