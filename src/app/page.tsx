@@ -78,25 +78,27 @@ export default function Home() {
     };
   }, []);
 
-  // 2x2 grid positioning with dynamic sizing
+  // Grid positioning — 2 columns, centered in viewport
   const H_GAP = 60;
   const V_GAP = 80;
   const GROUP_GAP = 120;
-  const ROW_HEIGHT = 700; // generous to prevent overlap with large frames
+  const ROW_HEIGHT = 700;
   const COLS = 2;
-  const COL_WIDTH = 1280; // wide enough for marketing designs (1200px + padding)
-  const GRID_WIDTH = COLS * COL_WIDTH + (COLS - 1) * H_GAP;
+  const ITEM_WIDTH = 640; // reasonable default for grid spacing
 
   const getGridPositions = useCallback(
     (count: number): Point[] => {
       const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const gridW = COLS * ITEM_WIDTH + (COLS - 1) * H_GAP;
 
       let startX: number;
       let startY: number;
 
       if (groups.length === 0) {
-        startX = (vw / 2 - canvas.offset.x) / canvas.scale - GRID_WIDTH / 2;
-        startY = (100 - canvas.offset.y) / canvas.scale;
+        // Center in current viewport
+        startX = (vw / 2 - canvas.offset.x) / canvas.scale - gridW / 2;
+        startY = (vh / 3 - canvas.offset.y) / canvas.scale;
       } else {
         let maxBottom = 0;
         for (const g of groups) {
@@ -109,7 +111,7 @@ export default function Home() {
       }
 
       return Array.from({ length: count }, (_, i) => ({
-        x: startX + (i % COLS) * (COL_WIDTH + H_GAP),
+        x: startX + (i % COLS) * (ITEM_WIDTH + H_GAP),
         y: startY + Math.floor(i / COLS) * (ROW_HEIGHT + V_GAP),
       }));
     },

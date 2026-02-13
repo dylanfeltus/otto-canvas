@@ -168,7 +168,13 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
             {isOwnKey ? "🔑 Own key" : "🌐 Demo key"} · {MODELS.find((m) => m.id === settings.model)?.label}
           </span>
           <button
-            onClick={onClose}
+            onClick={() => {
+              // Auto-save key if changed
+              if (key.trim() !== settings.apiKey) {
+                onUpdate({ apiKey: key.trim() });
+              }
+              onClose();
+            }}
             className="text-[13px] font-medium text-gray-600 hover:text-gray-800 px-4 py-2 rounded-xl hover:bg-black/5 transition-all"
           >
             Done
