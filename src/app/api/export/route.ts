@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 60;
 
-const DEFAULT_MODEL = "claude-sonnet-4-0514";
+const DEFAULT_MODEL = "claude-sonnet-4-5-20241022";
 
 function getClient(apiKey?: string): Anthropic {
   if (apiKey) return new Anthropic({ apiKey });

@@ -2,9 +2,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 
 const MODELS = [
+  "claude-opus-4-6-20250219",
+  "claude-sonnet-4-5-20241022",
   "claude-opus-4-0520",
   "claude-sonnet-4-0514",
-  "claude-haiku-3-20241022",
 ];
 
 export async function POST(req: NextRequest) {
