@@ -13,12 +13,12 @@ interface ExportMenuProps {
 }
 
 const CODE_FORMATS: { id: ExportFormat; label: string; icon: string; ext: string }[] = [
-  { id: "svg", label: "SVG (Figma)", icon: "◇", ext: "svg" },
   { id: "tailwind", label: "Tailwind", icon: "⊞", ext: "html" },
   { id: "react", label: "React", icon: "⚛", ext: "tsx" },
 ];
 
-const IMAGE_FORMATS: { id: ExportFormat; label: string; icon: string }[] = [
+const IMAGE_FORMATS: { id: ExportFormat; label: string; icon: string; ext?: string }[] = [
+  { id: "svg", label: "SVG", icon: "◇", ext: "svg" },
   { id: "png", label: "PNG", icon: "🖼" },
   { id: "jpg", label: "JPG", icon: "📷" },
   { id: "copy-image", label: "Copy as Image", icon: "📋" },
@@ -145,7 +145,7 @@ export function ExportMenu({ html, label, width = 480, apiKey, model }: ExportMe
 
   const handleDownload = useCallback(() => {
     if (!preview) return;
-    const fmt = CODE_FORMATS.find((f) => f.id === preview.format);
+    const fmt = ALL_FORMATS.find((f) => f.id === preview.format);
     const mime = preview.format === "svg" ? "image/svg+xml" : "text/plain";
     const blob = new Blob([preview.code], { type: mime });
     const url = URL.createObjectURL(blob);
