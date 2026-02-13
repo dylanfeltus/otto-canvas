@@ -10,7 +10,7 @@ function getClient(apiKey?: string): Anthropic {
 
 export async function POST(req: NextRequest) {
   try {
-    const { prompt, apiKey } = await req.json();
+    const { prompt, apiKey, model } = await req.json();
 
     if (!prompt) {
       return NextResponse.json({ error: "Prompt required" }, { status: 400 });
@@ -18,9 +18,8 @@ export async function POST(req: NextRequest) {
 
     const client = getClient(apiKey);
 
-    // Use a fast model for planning regardless of user's selected model
     const message = await client.messages.create({
-      model: "claude-sonnet-4-5-20250514",
+      model: model || "claude-sonnet-4-5-20250514",
       max_tokens: 300,
       messages: [
         {

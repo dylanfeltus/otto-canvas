@@ -210,7 +210,7 @@ export default function Home() {
           const planRes = await fetch("/api/plan", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt, apiKey: settings.apiKey || undefined }),
+            body: JSON.stringify({ prompt, apiKey: settings.apiKey || undefined, model: settings.model }),
             signal: controller.signal,
           });
           if (planRes.ok) {
