@@ -120,6 +120,7 @@ setTimeout(reportHeight, 1500);
   return (
     <div
       className={`absolute ${isDragging ? "z-50" : ""}`}
+      data-tour="design-frame"
       style={{
         left: iteration.position.x,
         top: iteration.position.y,
@@ -227,6 +228,7 @@ function RemixButton({ iteration, onRemix }: { iteration: DesignIteration; onRem
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-gray-400 hover:text-gray-600 hover:bg-black/5 transition-all"
         title="Remix this design"
+        data-tour="remix-button"
       >
         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="17 1 21 5 17 9" />

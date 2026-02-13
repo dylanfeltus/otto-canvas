@@ -11,6 +11,9 @@ import { CommentInput } from "@/components/comment-input";
 import { SettingsModal } from "@/components/settings-modal";
 import { PromptLibrary } from "@/components/prompt-library";
 import { PipelineStatusOverlay } from "@/components/pipeline-status";
+import { OnboardingModal } from "@/components/onboarding-modal";
+import { GuidedTour } from "@/components/guided-tour";
+import { useOnboarding } from "@/hooks/use-onboarding";
 import type { PipelineStatus } from "@/lib/pipeline";
 import type {
   DesignIteration,
@@ -23,6 +26,7 @@ import type {
 export default function Home() {
   const canvas = useCanvas();
   const { settings, setSettings, isOwnKey, hasGeminiKey, availableModels, isProbing } = useSettings();
+  const onboarding = useOnboarding();
   const canvasElRef = useRef<HTMLDivElement | null>(null);
   const combinedCanvasRef: RefCallback<HTMLDivElement> = useCallback((el) => {
     canvasElRef.current = el;
@@ -1053,6 +1057,38 @@ export default function Home() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Onboarding: Welcome modal */}
+      {onboarding.showWelcome && (
+        <OnboardingModal
+          onComplete={(anthropicKey, geminiKey) => {
+            setSettings({ apiKey: anthropicKey, geminiKey });
+            onboarding.completeKeys();
+          }}
+          onDismiss={() => onboarding.dismiss()}
+        />
+      )}
+
+      {/* Onboarding: Guided tour */}
+      {onboarding.showTour && (
+        <GuidedTour
+          onComplete={() => onboarding.completeTour()}
+          hasFrames={groups.length > 0 && groups.some(g => g.iterations.some(i => !i.isLoading && i.html))}
+        />
+      )}
+
+      {/* Onboarding: Key banner (dismissed without entering keys) */}
+      {onboarding.showKeyBanner && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40">
+          <button
+            onClick={() => setShowSettings(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 backdrop-blur-xl border border-amber-300/30 text-[12px] font-medium text-amber-700 hover:bg-amber-500/20 transition-all shadow-sm"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            Add your API key in Settings to start designing
+          </button>
         </div>
       )}
     </div>

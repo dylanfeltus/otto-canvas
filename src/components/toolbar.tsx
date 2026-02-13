@@ -71,6 +71,7 @@ export function Toolbar({
         active={mode === "comment"}
         onClick={() => onModeChange("comment")}
         title="Comment (C)"
+        dataTour="comment-tool"
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" fill={mode === "comment" ? "currentColor" : "none"} />
@@ -123,7 +124,7 @@ export function Toolbar({
 
       {/* Menu dropdown — outside scroll wrapper so it's not clipped */}
       <div className="relative shrink-0" ref={menuRef}>
-        <ToolButton onClick={() => setMenuOpen(!menuOpen)} title="Menu">
+        <ToolButton onClick={() => setMenuOpen(!menuOpen)} title="Menu" dataTour="export-menu">
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <line x1="4" y1="6" x2="20" y2="6" />
             <line x1="4" y1="12" x2="20" y2="12" />
@@ -170,16 +171,19 @@ function ToolButton({
   onClick,
   title,
   children,
+  dataTour,
 }: {
   active?: boolean;
   onClick: () => void;
   title: string;
   children: React.ReactNode;
+  dataTour?: string;
 }) {
   return (
     <button
       onClick={onClick}
       title={title}
+      data-tour={dataTour}
       className={`w-8 h-8 flex items-center justify-center rounded-xl transition-all ${
         active
           ? "bg-blue-500/90 text-white shadow-[0_0_12px_rgba(59,130,246,0.4)]"
