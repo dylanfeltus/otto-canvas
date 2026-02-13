@@ -19,7 +19,7 @@ function saveHistory(history: string[]): void {
 }
 
 interface PromptBarProps {
-  onSubmit: (prompt: string, count: number) => void;
+  onSubmit: (prompt: string) => void;
   isGenerating: boolean;
   genStatus?: string;
   onCancel?: () => void;
@@ -27,7 +27,6 @@ interface PromptBarProps {
 
 export function PromptBar({ onSubmit, isGenerating, genStatus, onCancel }: PromptBarProps) {
   const [value, setValue] = useState("");
-  const [count, setCount] = useState(4);
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1); // -1 = current input, 0 = most recent, etc.
   const [draft, setDraft] = useState(""); // saves current input when browsing history
@@ -57,7 +56,7 @@ export function PromptBar({ onSubmit, isGenerating, genStatus, onCancel }: Promp
     setHistory(newHistory);
     saveHistory(newHistory);
 
-    onSubmit(trimmed, count);
+    onSubmit(trimmed);
     setValue("");
     setHistoryIndex(-1);
     setDraft("");
@@ -125,26 +124,6 @@ export function PromptBar({ onSubmit, isGenerating, genStatus, onCancel }: Promp
           className="flex-1 px-0 py-2 text-[15px] text-gray-800 placeholder-gray-400/70 bg-transparent outline-none resize-none leading-[22px]"
           style={{ maxHeight: 22 * 6 }}
         />
-        {/* Concept count selector */}
-        {!isGenerating && (
-          <div className="flex items-center gap-0.5 ml-2 shrink-0">
-            {[1, 2, 3, 4].map((n) => (
-              <button
-                key={n}
-                onClick={() => setCount(n)}
-                className={`w-7 h-7 rounded-lg text-[12px] font-medium transition-all ${
-                  count === n
-                    ? "bg-gray-900/80 text-white"
-                    : "text-gray-400 hover:text-gray-600 hover:bg-black/5"
-                }`}
-                title={`Generate ${n} variation${n > 1 ? "s" : ""}`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-        )}
-
         {isGenerating ? (
           <div className="flex items-center gap-2 ml-2 shrink-0">
             {genStatus && (

@@ -6,6 +6,7 @@ export interface Settings {
   apiKey: string;
   model: string;
   systemPrompt: string;
+  conceptCount: number;
 }
 
 const STORAGE_KEY = "otto-settings";
@@ -24,6 +25,7 @@ export function useSettings() {
     apiKey: "",
     model: DEFAULT_MODEL,
     systemPrompt: "",
+    conceptCount: 4,
   });
   const [loaded, setLoaded] = useState(false);
 
@@ -37,6 +39,7 @@ export function useSettings() {
           apiKey: parsed.apiKey || "",
           model: parsed.model || DEFAULT_MODEL,
           systemPrompt: parsed.systemPrompt || "",
+          conceptCount: parsed.conceptCount || 4,
         });
       }
     } catch {}

@@ -170,6 +170,31 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-[11px] font-semibold text-amber-600 uppercase tracking-wider">🛠 Dev Mode</span>
               </div>
+              {/* Concept count */}
+              <div className="mb-4">
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  Concepts per generation
+                </label>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => onUpdate({ conceptCount: n })}
+                      className={`w-9 h-8 rounded-lg text-[12px] font-medium transition-all ${
+                        settings.conceptCount === n
+                          ? "bg-amber-500/90 text-white"
+                          : "bg-white/50 text-gray-500 hover:bg-white/80"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-[10px] text-gray-500">
+                  How many design variations to generate per prompt.
+                </p>
+              </div>
+
               <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 System Prompt
               </label>

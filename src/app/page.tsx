@@ -204,7 +204,7 @@ export default function Home() {
   }, []);
 
   const handleGenerate = useCallback(
-    async (prompt: string, requestedCount?: number) => {
+    async (prompt: string) => {
       setIsGenerating(true);
       setGenStatus("Planning concepts…");
       const groupId = `group-${Date.now()}`;
@@ -215,7 +215,7 @@ export default function Home() {
         abortRef.current = controller;
 
         // Planning call — model decides how many concepts
-        let iterationCount = requestedCount || 4;
+        let iterationCount = settings.conceptCount || 4;
         let concepts: string[] = [];
 
         try {
