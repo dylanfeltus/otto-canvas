@@ -1,5 +1,7 @@
 # Canvas by Otto
 
+**[→ Try it live at canvas.otto.design](https://canvas.otto.design)**
+
 An open-source AI design tool by [Otto](https://otto.design). Describe what you want, get multiple design variations on an infinite canvas, then click to refine.
 
 **Vibe coding, but for design.**
