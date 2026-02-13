@@ -389,6 +389,24 @@ function compositeImages(html: string, placeholders: Placeholder[], imageMap: Ma
   return result;
 }
 
+/** Strip base64 data URIs from HTML to avoid token explosion, return stripped HTML + restore function */
+function stripBase64Images(html: string): { stripped: string; restore: (output: string) => string } {
+  const images: string[] = [];
+  const stripped = html.replace(/src="(data:image\/[^"]+)"/g, (_match, dataUri) => {
+    const idx = images.length;
+    images.push(dataUri);
+    return `src="[IMAGE_PLACEHOLDER_${idx}]"`;
+  });
+  const restore = (output: string): string => {
+    let result = output;
+    for (let i = 0; i < images.length; i++) {
+      result = result.replace(`[IMAGE_PLACEHOLDER_${i}]`, images[i]);
+    }
+    return result;
+  };
+  return { stripped, restore };
+}
+
 /** Stage 4: Visual QA — Claude reviews the design and suggests fixes */
 async function visualQA(
   client: Anthropic,
@@ -398,8 +416,9 @@ async function visualQA(
   width?: number,
   height?: number,
 ): Promise<string> {
-  // We can't screenshot in a serverless function, so we do text-based QA
-  // Claude reviews the HTML structure for common issues
+  // Strip base64 images to avoid token explosion (composited images can be 1M+ chars)
+  const { stripped, restore } = stripBase64Images(html);
+
   const message = await client.messages.create({
     model,
     max_tokens: 8192,
@@ -412,7 +431,9 @@ Original request: "${originalPrompt}"
 Target size: ${width || "auto"}x${height || "auto"}
 
 Current HTML:
-${html}
+${stripped}
+
+Note: [IMAGE_PLACEHOLDER_N] references are real images — keep all <img> tags and their src attributes exactly as-is.
 
 REVIEW CHECKLIST:
 1. Typography — proper hierarchy, readable sizes, good line-height
@@ -436,7 +457,7 @@ RULES:
   });
 
   const raw = message.content[0].type === "text" ? message.content[0].text : "";
-  return parseHtmlWithSize(raw).html;
+  return restore(parseHtmlWithSize(raw).html);
 }
 
 /** Generate critique of a completed frame for improving the next one */
@@ -446,6 +467,8 @@ async function generateCritique(
   html: string,
   originalPrompt: string,
 ): Promise<string> {
+  const { stripped } = stripBase64Images(html);
+
   const message = await client.messages.create({
     model,
     max_tokens: 1024,
@@ -457,7 +480,7 @@ async function generateCritique(
 Original request: "${originalPrompt}"
 
 HTML:
-${html}
+${stripped}
 
 Provide 3-5 bullet points of specific improvements. Focus on:
 - What works well (keep this in the next variation)
