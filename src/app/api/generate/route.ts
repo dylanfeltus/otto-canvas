@@ -53,11 +53,10 @@ async function callWithFallback(
 }
 
 const VARIATION_STYLES = [
-  "Clean and minimal — lots of whitespace, simple typography, subtle colors",
-  "Bold and modern — strong colors, large typography, high contrast",
-  "Soft and rounded — rounded corners, pastel colors, friendly feel",
-  "Sharp and professional — crisp edges, corporate palette, structured layout",
-  "Creative and expressive — unique layout, gradients, interesting visual hierarchy",
+  "Refined and premium — think Stripe or Linear. Subtle gradients, generous whitespace, sophisticated color palette, polished micro-details",
+  "Bold and expressive — vibrant colors, large confident typography, strong visual hierarchy, creative use of shapes and color blocks",
+  "Warm and approachable — friendly rounded shapes, warm color palette, inviting feel, natural and human-centered",
+  "Dark and dramatic — dark backgrounds, glowing accents, cinematic feel, high contrast, moody atmosphere",
 ];
 
 export async function POST(req: NextRequest) {
@@ -105,38 +104,45 @@ async function generateVariation(
   const { result: message } = await callWithFallback(client, model, [
     {
       role: "user",
-      content: `You are a UI/web designer. Generate a single, self-contained HTML design for the following request.
+      content: `You are a world-class visual designer. Generate a stunning, self-contained HTML/CSS design.
 
 Design request: "${prompt}"
 Style direction: ${style}
 
-IMPORTANT: First output a JSON size hint on its own line, then the HTML. Format:
+FIRST, determine the design category:
+- MARKETING (social media cards, banners, ads, email headers, OG images) → Focus on visual impact, bold typography, abstract/decorative graphics via CSS. NO buttons, NO forms, NO interactive elements. Think poster design, not web UI.
+- UI COMPONENT (navbars, forms, modals, cards, settings panels) → Focus on usability, clean layout, proper interactive patterns.
+- FULL PAGE (landing pages, dashboards, pricing pages, blog layouts) → Full composition with sections, proper information hierarchy.
+
+SIZE — output a size comment on the FIRST line:
 <!--size:WIDTHxHEIGHT-->
 
-Choose dimensions that match the design type:
-- Navigation bar: ~1200x60-80
-- Hero section: ~1200x500-700
-- Card component: ~350x400
-- Modal/dialog: ~500x350
-- Full page: ~1200x800
-- Sidebar: ~280x600
-- Footer: ~1200x200-300
-- Form: ~450x500
-- Pricing cards: ~1100x500
-- Dashboard: ~1200x700
+Size guidelines:
+- Social media card/banner: 1200x630
+- Instagram post: 1080x1080
+- Navigation bar: 1200x70
+- Hero section: 1200x600
+- Card component: 380x420
+- Modal/dialog: 500x380
+- Full page: 1200x800
+- Dashboard: 1200x700
+- Email header: 600x300
 
-RULES:
-- Start with <!--size:WIDTHxHEIGHT--> on the first line (e.g. <!--size:1200x70-->)
-- Then the HTML code — no explanation, no markdown, no code fences
-- Include ALL CSS inline in a <style> tag
-- The design must be self-contained — no external dependencies
-- Use modern CSS (flexbox, grid, gradients, shadows)
-- Make it look like a real, polished design — not a wireframe
-- Use appropriate placeholder text and content
-- Set the root element width to match the size hint width
-- Use web-safe fonts or system font stack
-- Include appropriate padding and spacing
-- Make colors, typography, and spacing feel intentional and designed`,
+DESIGN QUALITY RULES:
+- Create CSS-only decorative elements: gradients, radial-gradient circles, box-shadows for glows, border-radius shapes, pseudo-elements for abstract graphics
+- Use rich color palettes — not just gray/blue. Think gradients, accent colors, complementary tones
+- Typography matters: vary font sizes dramatically for hierarchy (48-72px headlines, 14-16px body)
+- Add visual texture: subtle patterns, layered shadows, glassmorphism, noise via repeating-radial-gradient
+- For marketing: fewer words, bigger type, more visual drama
+- For UI: proper spacing, clear labels, realistic placeholder content
+
+OUTPUT RULES:
+- First line: <!--size:WIDTHxHEIGHT-->
+- Then HTML only — no explanation, no markdown, no code fences
+- ALL CSS in a <style> tag at the top
+- Self-contained — no external dependencies, no images (use CSS shapes/gradients instead)
+- Use system font stack: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif
+- Root element width must match the size hint`,
     },
   ], 4096);
 

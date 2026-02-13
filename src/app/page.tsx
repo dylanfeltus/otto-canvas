@@ -78,14 +78,14 @@ export default function Home() {
     };
   }, []);
 
-  // Fixed 2x2 grid positioning
-  // Positions are calculated ONCE per generation and never change
-  const H_GAP = 60;  // horizontal gap between frames
-  const V_GAP = 80;  // vertical gap between rows in same generation
-  const GROUP_GAP = 120; // vertical gap between generation groups
-  const ROW_HEIGHT = 500; // estimated height per row (generous)
+  // 2x2 grid positioning with dynamic sizing
+  const H_GAP = 60;
+  const V_GAP = 80;
+  const GROUP_GAP = 120;
+  const ROW_HEIGHT = 700; // generous to prevent overlap with large frames
   const COLS = 2;
-  const GRID_WIDTH = COLS * FRAME_WIDTH + (COLS - 1) * H_GAP; // 480 + 60 + 480 = 1020
+  const COL_WIDTH = 1280; // wide enough for marketing designs (1200px + padding)
+  const GRID_WIDTH = COLS * COL_WIDTH + (COLS - 1) * H_GAP;
 
   const getGridPositions = useCallback(
     (count: number): Point[] => {
@@ -95,15 +95,13 @@ export default function Home() {
       let startY: number;
 
       if (groups.length === 0) {
-        // First generation — center in viewport
         startX = (vw / 2 - canvas.offset.x) / canvas.scale - GRID_WIDTH / 2;
         startY = (100 - canvas.offset.y) / canvas.scale;
       } else {
-        // Compute lowest Y from all existing iterations
         let maxBottom = 0;
         for (const g of groups) {
           for (const iter of g.iterations) {
-            maxBottom = Math.max(maxBottom, iter.position.y + ROW_HEIGHT);
+            maxBottom = Math.max(maxBottom, iter.position.y + (iter.height || ROW_HEIGHT));
           }
         }
         startX = groups[0].iterations[0]?.position.x ?? 0;
@@ -111,7 +109,7 @@ export default function Home() {
       }
 
       return Array.from({ length: count }, (_, i) => ({
-        x: startX + (i % COLS) * (FRAME_WIDTH + H_GAP),
+        x: startX + (i % COLS) * (COL_WIDTH + H_GAP),
         y: startY + Math.floor(i / COLS) * (ROW_HEIGHT + V_GAP),
       }));
     },
@@ -186,6 +184,21 @@ export default function Home() {
             };
           })
         );
+
+        // Zoom-to-fit: adjust canvas to show all new frames
+        setTimeout(() => {
+          const iters = data.iterations as Array<{ width?: number; height?: number }>;
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          positions.forEach((pos, i) => {
+            const w = iters[i]?.width || FRAME_WIDTH;
+            const h = iters[i]?.height || ROW_HEIGHT;
+            minX = Math.min(minX, pos.x);
+            minY = Math.min(minY, pos.y);
+            maxX = Math.max(maxX, pos.x + w);
+            maxY = Math.max(maxY, pos.y + h);
+          });
+          canvas.zoomToFit({ minX, minY, maxX, maxY });
+        }, 100);
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {
           // User cancelled — remove the placeholder group
