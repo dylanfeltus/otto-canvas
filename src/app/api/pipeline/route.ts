@@ -16,7 +16,7 @@ function getAnthropicClient(apiKey?: string): Anthropic {
 function getGeminiClient(apiKey?: string): GoogleGenAI | null {
   const key = apiKey || process.env.GEMINI_API_KEY;
   if (!key) return null;
-  return new GoogleGenAI({ apiKey: key, httpOptions: { apiVersion: "v1alpha" } });
+  return new GoogleGenAI({ apiKey: key });
 }
 
 // --- Types ---
@@ -291,7 +291,7 @@ async function generateGeminiImage(ph: Placeholder, geminiKey: string): Promise<
   const gemini = getGeminiClient(geminiKey);
   if (!gemini) return null;
   const response = await gemini.models.generateContent({
-    model: "gemini-2.0-flash-exp",
+    model: "gemini-2.5-flash-image",
     contents: `Generate a high quality design asset image: ${ph.description}. Clean, professional, suitable for web/marketing design. No text unless specifically requested. Output only the image.`,
     config: { responseModalities: ["TEXT", "IMAGE"] },
   });
