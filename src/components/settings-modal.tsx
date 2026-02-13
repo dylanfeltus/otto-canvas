@@ -369,6 +369,38 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
             <div className="flex items-center gap-2 mb-3">
               <span className="text-[11px] font-semibold text-amber-600 uppercase tracking-wider">🧪 Experimental</span>
             </div>
+              {/* Generation mode */}
+              <div className="mb-4">
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  Generation Mode
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => onUpdate({ quickMode: false })}
+                    className={`text-[11px] font-medium px-3 py-1.5 rounded-lg transition-all ${
+                      !settings.quickMode
+                        ? "bg-amber-500/90 text-white"
+                        : "bg-white/50 text-gray-600 hover:bg-white/80"
+                    }`}
+                  >
+                    🔄 Critique Loop
+                  </button>
+                  <button
+                    onClick={() => onUpdate({ quickMode: true })}
+                    className={`text-[11px] font-medium px-3 py-1.5 rounded-lg transition-all ${
+                      settings.quickMode
+                        ? "bg-amber-500/90 text-white"
+                        : "bg-white/50 text-gray-600 hover:bg-white/80"
+                    }`}
+                  >
+                    ⚡ Quick Mode
+                  </button>
+                </div>
+                <p className="mt-1.5 text-[10px] text-gray-500">
+                  Critique Loop: sequential generation with feedback between frames. Quick Mode: parallel, no critique.
+                </p>
+              </div>
+
               {/* Concept count */}
               <div className="mb-4">
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">

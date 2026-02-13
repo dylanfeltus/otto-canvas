@@ -37,7 +37,7 @@ export default function Home() {
   const abortRef = useRef<AbortController | null>(null);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [quickMode, setQuickMode] = useState(false);
+  const quickMode = settings.quickMode;
   const [showGitHash, setShowGitHash] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [commentDraft, setCommentDraft] = useState<{
@@ -964,21 +964,6 @@ export default function Home() {
       />
 
       <PromptBar onSubmit={handleGenerate} isGenerating={isGenerating} genStatus={genStatus} onCancel={() => abortRef.current?.abort()} />
-
-      {/* Quick Mode toggle — above prompt bar */}
-      <div className="fixed bottom-[110px] left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-        <button
-          onClick={() => setQuickMode(!quickMode)}
-          className={`pointer-events-auto text-[11px] font-medium px-3 py-1.5 rounded-full transition-all backdrop-blur-sm border ${
-            quickMode
-              ? "bg-amber-500/20 text-amber-700 border-amber-300/40"
-              : "bg-white/20 text-gray-500 border-white/30 hover:bg-white/40"
-          }`}
-          title={quickMode ? "Quick Mode: parallel, no critique" : "Standard: sequential with critique loop"}
-        >
-          {quickMode ? "⚡ Quick Mode" : "🔄 Critique Loop"}
-        </button>
-      </div>
 
       {/* Dev mode build badge */}
       {showGitHash && (
