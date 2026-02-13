@@ -71,8 +71,9 @@ export async function POST(req: NextRequest) {
     const useModel = model || DEFAULT_MODEL;
 
     if (revision && existingHtml) {
-      const result = await generateSingle(client, useModel, prompt, revision, existingHtml);
-      return NextResponse.json({ iterations: [result] });
+      const style = variationIndex !== undefined ? VARIATION_STYLES[variationIndex] || VARIATION_STYLES[0] : undefined;
+      const result = await generateSingle(client, useModel, prompt, revision, existingHtml, style, variationIndex);
+      return NextResponse.json({ iteration: result });
     }
 
     // Single variation mode (sequential generation from frontend)
@@ -172,35 +173,44 @@ async function generateSingle(
   model: string,
   originalPrompt: string,
   revision: string,
-  existingHtml: string
+  existingHtml: string,
+  styleVariation?: string,
+  variationIndex?: number
 ): Promise<{ html: string; label: string; width?: number; height?: number }> {
+  const styleInstruction = styleVariation
+    ? `\n\nStyle direction for THIS variation: ${styleVariation}\nMake this variation feel distinctly different from others while keeping the same concept and revision.`
+    : "";
+
   const { result: message } = await callWithFallback(client, model, [
     {
       role: "user",
-      content: `You are a UI/web designer. Here is an existing HTML design:
+      content: `You are a world-class visual designer. Here is an existing HTML design:
 
 ${existingHtml}
 
 The original request was: "${originalPrompt}"
 
-The user wants this specific revision: "${revision}"
+The user wants to REMIX this design: "${revision}"${styleInstruction}
 
-IMPORTANT RULES:
-- Return ONLY the updated HTML code, no explanation, no markdown, no code fences
-- Keep the same overall structure and style
-- Apply ONLY the requested revision
-- Include ALL CSS inline in a <style> tag at the top
-- The design must be self-contained — no external dependencies
-- Maintain the same width and layout approach`,
+OUTPUT FORMAT:
+- Start with <!--size:WIDTHxHEIGHT--> on the first line
+- Then the HTML — no explanation, no markdown, no code fences
+- Include ALL CSS inline in a <style> tag
+- Self-contained, no external dependencies
+- Create something that feels like a distinct variation, not a copy
+- Use the same dimensions unless the remix specifically changes the format`,
     },
   ], 4096);
 
   const html =
     message.content[0].type === "text" ? message.content[0].text : "";
 
+  const parsed = parseHtmlWithSize(html);
   return {
-    html: parseHtmlWithSize(html).html,
-    label: "Revised",
+    html: parsed.html,
+    label: variationIndex !== undefined ? `Remix ${variationIndex + 1}` : "Revised",
+    width: parsed.width,
+    height: parsed.height,
   };
 }
 
