@@ -120,24 +120,43 @@ export default function Home() {
     async (prompt: string) => {
       setIsGenerating(true);
       const groupId = `group-${Date.now()}`;
-      const iterationCount = 4;
-      const positions = getGridPositions(iterationCount);
-
-      // Start with empty group — add one placeholder at a time
-      const newGroup: GenerationGroup = {
-        id: groupId,
-        prompt,
-        iterations: [],
-        position: positions[0],
-        createdAt: Date.now(),
-      };
-
-      setGroups((prev) => [...prev, newGroup]);
 
       try {
         abortRef.current?.abort();
         const controller = new AbortController();
         abortRef.current = controller;
+
+        // Planning call — model decides how many concepts
+        let iterationCount = 4;
+        let concepts: string[] = [];
+
+        try {
+          const planRes = await fetch("/api/plan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt, apiKey: settings.apiKey || undefined }),
+            signal: controller.signal,
+          });
+          if (planRes.ok) {
+            const plan = await planRes.json();
+            iterationCount = plan.count || 4;
+            concepts = plan.concepts || [];
+          }
+        } catch {
+          // Planning failed — continue with default 4
+        }
+
+        const positions = getGridPositions(iterationCount);
+
+        const newGroup: GenerationGroup = {
+          id: groupId,
+          prompt,
+          iterations: [],
+          position: positions[0],
+          createdAt: Date.now(),
+        };
+
+        setGroups((prev) => [...prev, newGroup]);
 
         // Generate sequentially — show one loading placeholder at a time
         for (let i = 0; i < iterationCount; i++) {
@@ -175,6 +194,7 @@ export default function Home() {
             body: JSON.stringify({
               prompt,
               variationIndex: i,
+              concept: concepts[i] || undefined,
               apiKey: settings.apiKey || undefined,
               model: settings.model,
             }),
