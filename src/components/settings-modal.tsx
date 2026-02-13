@@ -162,14 +162,13 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
           </div>
         </div>
 
-        {/* Advanced / System Prompt */}
-        <div className="px-6 pb-6">
-          <details className="group">
-            <summary className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-500 transition-colors">
-              Advanced
-              <span className="ml-1 text-[9px] group-open:rotate-90 inline-block transition-transform">▶</span>
-            </summary>
-            <div className="mt-3">
+        {/* Advanced / System Prompt — only visible with ?devMode=true */}
+        {typeof window !== "undefined" && new URLSearchParams(window.location.search).has("devMode") && (
+          <div className="px-6 pb-6">
+            <div className="border border-amber-200/50 bg-amber-50/30 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[11px] font-semibold text-amber-600 uppercase tracking-wider">🛠 Dev Mode</span>
+              </div>
               <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 System Prompt
               </label>
@@ -177,14 +176,14 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
                 value={settings.systemPrompt}
                 onChange={(e) => onUpdate({ systemPrompt: e.target.value })}
                 placeholder="Add custom instructions for the AI designer...&#10;&#10;e.g. &quot;You are a Facebook ad designer. Use 1200x628, minimal text, strong visual hierarchy...&quot;"
-                className="w-full h-28 px-4 py-3 rounded-xl bg-white/50 border border-gray-200/50 text-[13px] text-gray-700 placeholder-gray-400/50 outline-none focus:border-blue-300/50 focus:ring-1 focus:ring-blue-200/30 resize-none font-mono"
+                className="w-full h-32 px-4 py-3 rounded-xl bg-white/70 border border-gray-200/50 text-[13px] text-gray-700 placeholder-gray-400/50 outline-none focus:border-blue-300/50 focus:ring-1 focus:ring-blue-200/30 resize-y font-mono"
               />
               <p className="mt-1.5 text-[10px] text-gray-400">
                 Prepended to every generation. Use for brand guidelines, design skills, or style overrides.
               </p>
             </div>
-          </details>
-        </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="p-6 border-t border-gray-200/30 flex items-center justify-between">
