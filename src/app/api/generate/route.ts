@@ -110,15 +110,30 @@ async function generateVariation(
 Design request: "${prompt}"
 Style direction: ${style}
 
-IMPORTANT RULES:
-- Return ONLY the HTML code, no explanation, no markdown, no code fences
-- Include ALL CSS inline in a <style> tag at the top
+IMPORTANT: First output a JSON size hint on its own line, then the HTML. Format:
+<!--size:WIDTHxHEIGHT-->
+
+Choose dimensions that match the design type:
+- Navigation bar: ~1200x60-80
+- Hero section: ~1200x500-700
+- Card component: ~350x400
+- Modal/dialog: ~500x350
+- Full page: ~1200x800
+- Sidebar: ~280x600
+- Footer: ~1200x200-300
+- Form: ~450x500
+- Pricing cards: ~1100x500
+- Dashboard: ~1200x700
+
+RULES:
+- Start with <!--size:WIDTHxHEIGHT--> on the first line (e.g. <!--size:1200x70-->)
+- Then the HTML code — no explanation, no markdown, no code fences
+- Include ALL CSS inline in a <style> tag
 - The design must be self-contained — no external dependencies
 - Use modern CSS (flexbox, grid, gradients, shadows)
 - Make it look like a real, polished design — not a wireframe
 - Use appropriate placeholder text and content
-- Maximum width: 400px for components, 800px for full pages
-- Set an explicit width on the root element
+- Set the root element width to match the size hint width
 - Use web-safe fonts or system font stack
 - Include appropriate padding and spacing
 - Make colors, typography, and spacing feel intentional and designed`,
@@ -128,9 +143,13 @@ IMPORTANT RULES:
   const html =
     message.content[0].type === "text" ? message.content[0].text : "";
 
+  const { html: cleaned, width, height } = parseHtmlWithSize(html);
+
   return {
-    html: cleanHtml(html),
+    html: cleaned,
     label: `Variation ${index + 1}`,
+    width,
+    height,
   };
 }
 
@@ -171,10 +190,23 @@ IMPORTANT RULES:
   };
 }
 
-function cleanHtml(html: string): string {
-  let cleaned = html.trim();
+function parseHtmlWithSize(raw: string): { html: string; width?: number; height?: number } {
+  let cleaned = raw.trim();
   if (cleaned.startsWith("```")) {
     cleaned = cleaned.replace(/^```(?:html)?\n?/, "").replace(/\n?```$/, "");
   }
-  return cleaned.trim();
+  cleaned = cleaned.trim();
+
+  // Extract size hint: <!--size:WIDTHxHEIGHT-->
+  const sizeMatch = cleaned.match(/<!--size:(\d+)x(\d+)-->/);
+  let width: number | undefined;
+  let height: number | undefined;
+
+  if (sizeMatch) {
+    width = parseInt(sizeMatch[1], 10);
+    height = parseInt(sizeMatch[2], 10);
+    cleaned = cleaned.replace(/<!--size:\d+x\d+-->\n?/, "").trim();
+  }
+
+  return { html: cleaned, width, height };
 }

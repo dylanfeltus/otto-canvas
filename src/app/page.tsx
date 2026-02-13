@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type RefCallback } from "react";
 import { useCanvas } from "@/hooks/use-canvas";
 import { useSettings } from "@/hooks/use-settings";
-import { DesignCard, FRAME_WIDTH } from "@/components/design-card";
+import { DesignCard, DEFAULT_FRAME_WIDTH as FRAME_WIDTH } from "@/components/design-card";
 import { usePersistedGroups } from "@/hooks/use-persisted-groups";
 import { PromptBar } from "@/components/prompt-bar";
 import { Toolbar } from "@/components/toolbar";
@@ -179,6 +179,8 @@ export default function Home() {
                 ...iter,
                 html: data.iterations[i]?.html || "<p>Failed to generate</p>",
                 label: data.iterations[i]?.label || iter.label,
+                width: data.iterations[i]?.width || iter.width,
+                height: data.iterations[i]?.height || iter.height,
                 isLoading: false,
               })),
             };

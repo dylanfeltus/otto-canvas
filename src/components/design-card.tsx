@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import type { DesignIteration, Comment as CommentType, Point } from "@/lib/types";
 import { ExportMenu } from "./export-menu";
 
-const FRAME_WIDTH = 480;
+export const DEFAULT_FRAME_WIDTH = 480;
+const FRAME_WIDTH = DEFAULT_FRAME_WIDTH; // kept for export compat
 const INITIAL_IFRAME_HEIGHT = 2000; // Start tall, measure down
 
 interface DesignCardProps {
@@ -52,7 +53,7 @@ export function DesignCard({
     doc.write(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
   html { height: auto; }
-  body { margin: 0; padding: 0; background: white; width: ${FRAME_WIDTH}px; overflow-x: hidden; overflow-y: hidden; min-height: 100px; }
+  body { margin: 0; padding: 0; background: white; width: ${iteration.width || FRAME_WIDTH}px; overflow-x: hidden; overflow-y: hidden; min-height: 100px; }
 </style></head><body>${iteration.html}</body></html>`);
     doc.close();
 
@@ -112,7 +113,7 @@ export function DesignCard({
       style={{
         left: iteration.position.x,
         top: iteration.position.y,
-        width: FRAME_WIDTH,
+        width: iteration.width || FRAME_WIDTH,
       }}
     >
       {/* Label + export */}
@@ -147,7 +148,7 @@ export function DesignCard({
             ? isDragging ? "cursor-grabbing shadow-xl ring-2 ring-blue-400/30" : "cursor-grab"
             : ""
         } ${iteration.isRegenerating ? "opacity-60" : ""}`}
-        style={{ width: FRAME_WIDTH, height: frameHeight }}
+        style={{ width: iteration.width || FRAME_WIDTH, height: frameHeight }}
       >
         {iteration.isLoading ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-3">
@@ -160,7 +161,7 @@ export function DesignCard({
             title={iteration.label}
             sandbox="allow-same-origin"
             style={{
-              width: FRAME_WIDTH,
+              width: iteration.width || FRAME_WIDTH,
               height: measuredRef.current ? contentHeight : INITIAL_IFRAME_HEIGHT,
               border: "none",
               display: "block",
