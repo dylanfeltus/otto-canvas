@@ -131,7 +131,7 @@ export function DesignCard({
         )}
         {!iteration.isLoading && iteration.html && (
           <div className="ml-auto opacity-0 group-hover/label:opacity-100 transition-opacity">
-            <ExportMenu html={iteration.html} label={iteration.label} apiKey={apiKey} model={model} />
+            <ExportMenu html={iteration.html} label={iteration.label} width={iteration.width} apiKey={apiKey} model={model} />
           </div>
         )}
       </div>
