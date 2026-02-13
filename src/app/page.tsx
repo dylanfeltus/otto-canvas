@@ -630,11 +630,12 @@ export default function Home() {
         y: dragRef.current.startPos.y + dy,
       };
 
+      const dragId = dragRef.current.iterationId;
       setGroups((prev) =>
         prev.map((g) => ({
           ...g,
           iterations: g.iterations.map((iter) =>
-            iter.id === dragRef.current!.iterationId
+            iter.id === dragId
               ? { ...iter, position: newPos }
               : iter
           ),
