@@ -154,9 +154,10 @@ OUTPUT RULES:
 - ALL CSS in a <style> tag at the top
 - Self-contained — no external dependencies, no images (use CSS shapes/gradients instead)
 - Use system font stack: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif
-- Root element width must match the size hint`,
+- Root element width must match the size hint
+- IMPORTANT: Keep CSS concise. Avoid overly verbose styles. The HTML body content matters more than elaborate CSS animations.`,
     },
-  ], 4096);
+  ], 8192);
 
   const html =
     message.content[0].type === "text" ? message.content[0].text : "";
@@ -207,7 +208,7 @@ OUTPUT FORMAT:
 - Create something that feels like a distinct variation, not a copy
 - Use the same dimensions unless the remix specifically changes the format`,
     },
-  ], 4096);
+  ], 8192);
 
   const html =
     message.content[0].type === "text" ? message.content[0].text : "";
