@@ -52,28 +52,31 @@ export function DesignCard({
   const [contentHeight, setContentHeight] = useState(320);
   const measuredRef = useRef(false);
 
-  // Build srcdoc with a postMessage height reporter script
+  // Build srcdoc — wrap content in a measuring div to get exact height
+  const frameW = iteration.width || FRAME_WIDTH;
   const srcdoc = iteration.html && !iteration.isLoading
     ? `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><style>
-  html { height: auto; max-height: none; }
-  body { margin: 0; padding: 0; background: white; width: ${iteration.width || FRAME_WIDTH}px; overflow: hidden; min-height: 100px; max-height: none; }
+<html style="height:auto;overflow:hidden;"><head><meta charset="utf-8"><style>
+  html, body { margin: 0; padding: 0; height: auto !important; min-height: 0 !important; max-height: none !important; overflow: hidden; }
+  body { background: white; width: ${frameW}px; }
+  #otto-measure { width: ${frameW}px; overflow: hidden; }
   img, video, svg { max-width: 100%; height: auto; display: block; object-fit: cover; }
   * { animation: none !important; transition: none !important; }
-</style></head><body>${iteration.html}
+  /* Kill common viewport-height patterns that inflate measurement */
+  [style*="100vh"], [style*="min-height: 100vh"], [style*="height: 100vh"] { height: auto !important; min-height: 0 !important; }
+</style></head><body><div id="otto-measure">${iteration.html}</div>
 <script>
 function reportHeight() {
-  var fc = document.body.firstElementChild;
-  var childH = fc ? fc.offsetHeight : 0;
-  var scrollH = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight, document.body.offsetHeight);
-  var h = (childH > 100 && childH < scrollH) ? childH : scrollH;
+  var el = document.getElementById('otto-measure');
+  if (!el) return;
+  var h = el.offsetHeight || el.scrollHeight || 100;
   parent.postMessage({ type: 'otto-frame-height', id: '${iteration.id}', height: h }, '*');
 }
 reportHeight();
-setTimeout(reportHeight, 100);
-setTimeout(reportHeight, 500);
-setTimeout(reportHeight, 1000);
-setTimeout(reportHeight, 2000);
+setTimeout(reportHeight, 50);
+setTimeout(reportHeight, 200);
+setTimeout(reportHeight, 600);
+setTimeout(reportHeight, 1500);
 </script></body></html>`
     : undefined;
 
@@ -82,11 +85,14 @@ setTimeout(reportHeight, 2000);
     if (!iteration.html || iteration.isLoading) return;
     measuredRef.current = false;
 
-    const hintMax = (iteration.height || 900) * 1.5;
+    // If we have a size hint from the model, use it as the initial content height
+    if (iteration.height) {
+      setContentHeight(iteration.height);
+    }
 
     const onMessage = (e: MessageEvent) => {
       if (e.data?.type === 'otto-frame-height' && e.data.id === iteration.id) {
-        const h = Math.min(Math.max(e.data.height, 100), hintMax, 1500);
+        const h = Math.min(Math.max(e.data.height, 50), 2000);
         setContentHeight(h);
         measuredRef.current = true;
       }
@@ -108,8 +114,8 @@ setTimeout(reportHeight, 2000);
   };
 
   // Use measured content height, fallback to model hint
-  const measuredHeight = measuredRef.current ? contentHeight : (iteration.height || 320);
-  const frameHeight = iteration.isLoading ? 320 : measuredHeight;
+  // Use measured height if available, then size hint, then default
+  const frameHeight = iteration.isLoading ? 320 : contentHeight;
 
   return (
     <div
