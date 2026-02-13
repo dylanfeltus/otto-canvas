@@ -98,7 +98,7 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
               </button>
             )}
             <p className="mt-2 text-[11px] text-gray-500 leading-relaxed">
-              Your key is stored in localStorage and sent directly to Anthropic. Never stored on our servers.
+              Your key is stored in localStorage. It passes through our server to reach Anthropic but is never logged or persisted.
             </p>
           </div>
 

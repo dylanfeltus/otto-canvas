@@ -565,7 +565,7 @@ export default function Home() {
                 if (iter.id === commentDraft.iterationId) {
                   return {
                     ...iter,
-                    html: data.iterations[0]?.html || iter.html,
+                    html: data.iteration?.html || data.iterations?.[0]?.html || iter.html,
                     isRegenerating: false,
                   };
                 }

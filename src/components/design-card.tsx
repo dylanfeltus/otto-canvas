@@ -52,75 +52,46 @@ export function DesignCard({
   const [contentHeight, setContentHeight] = useState(320);
   const measuredRef = useRef(false);
 
-  useEffect(() => {
-    if (!iteration.html || iteration.isLoading) return;
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    measuredRef.current = false;
-
-    // Write content with a tall body so nothing clips during measurement
-    const doc = iframe.contentDocument;
-    if (!doc) return;
-
-    doc.open();
-    doc.write(`<!DOCTYPE html>
+  // Build srcdoc with a postMessage height reporter script
+  const srcdoc = iteration.html && !iteration.isLoading
+    ? `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
   html { height: auto; max-height: none; }
   body { margin: 0; padding: 0; background: white; width: ${iteration.width || FRAME_WIDTH}px; overflow: hidden; min-height: 100px; max-height: none; }
-  body > * { max-height: 2000px; }
-</style></head><body>${iteration.html}</body></html>`);
-    doc.close();
+</style></head><body>${iteration.html}
+<script>
+function reportHeight() {
+  var fc = document.body.firstElementChild;
+  var childH = fc ? fc.offsetHeight : 0;
+  var scrollH = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight, document.body.offsetHeight);
+  var h = (childH > 100 && childH < scrollH) ? childH : scrollH;
+  parent.postMessage({ type: 'otto-frame-height', id: '${iteration.id}', height: h }, '*');
+}
+reportHeight();
+setTimeout(reportHeight, 100);
+setTimeout(reportHeight, 500);
+setTimeout(reportHeight, 1000);
+setTimeout(reportHeight, 2000);
+</script></body></html>`
+    : undefined;
 
-    const measure = () => {
-      try {
-        const d = iframe.contentDocument;
-        if (!d?.documentElement) return;
+  // Listen for height messages from sandboxed iframe
+  useEffect(() => {
+    if (!iteration.html || iteration.isLoading) return;
+    measuredRef.current = false;
 
-        // Prefer first child element height (avoids viewport unit inflation)
-        const firstChild = d.body?.firstElementChild as HTMLElement | null;
-        const childH = firstChild ? firstChild.offsetHeight : 0;
-        const scrollH = Math.max(
-          d.documentElement.scrollHeight,
-          d.body?.scrollHeight ?? 0,
-          d.body?.offsetHeight ?? 0,
-        );
+    const hintMax = (iteration.height || 900) * 1.5;
 
-        // Use the smaller of scrollHeight and firstChild height (if reasonable)
-        // This avoids 100vh expanding to the 2000px initial iframe height
-        let h = scrollH;
-        if (childH > 100 && childH < scrollH) {
-          h = childH;
-        }
-
-        // Cap to model hint + generous buffer, or absolute max
-        const hintMax = (iteration.height || 900) * 1.5;
-        h = Math.min(Math.max(h, 100), hintMax, 1500);
-
+    const onMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'otto-frame-height' && e.data.id === iteration.id) {
+        const h = Math.min(Math.max(e.data.height, 100), hintMax, 1500);
         setContentHeight(h);
         measuredRef.current = true;
-      } catch {}
+      }
     };
-
-    // iframe load event
-    const onLoad = () => measure();
-    iframe.addEventListener("load", onLoad);
-
-    // Also measure on multiple delays to catch fonts/images
-    measure();
-    const t1 = setTimeout(measure, 100);
-    const t2 = setTimeout(measure, 500);
-    const t3 = setTimeout(measure, 1000);
-    const t4 = setTimeout(measure, 2000);
-
-    return () => {
-      iframe.removeEventListener("load", onLoad);
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
-    };
-  }, [iteration.html, iteration.isLoading]);
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [iteration.html, iteration.isLoading, iteration.id, iteration.height]);
 
   const handleClick = (e: React.MouseEvent) => {
     if (!isCommentMode) return;
@@ -195,7 +166,8 @@ export function DesignCard({
           <iframe
             ref={iframeRef}
             title={iteration.label}
-            sandbox="allow-same-origin"
+            sandbox="allow-scripts"
+            srcDoc={srcdoc}
             style={{
               width: iteration.width || FRAME_WIDTH,
               height: measuredRef.current ? contentHeight : INITIAL_IFRAME_HEIGHT,
