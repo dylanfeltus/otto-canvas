@@ -155,7 +155,8 @@ OUTPUT RULES:
 - Self-contained — no external dependencies, no images (use CSS shapes/gradients instead)
 - Use system font stack: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif
 - Root element width must match the size hint
-- IMPORTANT: Keep CSS concise. Avoid overly verbose styles. The HTML body content matters more than elaborate CSS animations.`,
+- IMPORTANT: Keep CSS concise. Avoid overly verbose styles. The HTML body content matters more than elaborate CSS animations.
+- CRITICAL: Generate exactly ONE design per response. Never include multiple designs, multiple ad variations, or multiple versions in one HTML file. The system handles variations externally — you only produce a single, complete design each time.`,
     },
   ], 8192);
 
