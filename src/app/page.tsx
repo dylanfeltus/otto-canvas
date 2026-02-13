@@ -632,6 +632,13 @@ export default function Home() {
 
       <PromptBar onSubmit={handleGenerate} isGenerating={isGenerating} onCancel={() => abortRef.current?.abort()} />
 
+      {/* Dev mode build badge */}
+      {typeof window !== "undefined" && new URLSearchParams(window.location.search).has("devMode") && (
+        <div className="fixed bottom-2 left-2 z-40 text-[9px] font-mono text-gray-400 bg-black/5 backdrop-blur-sm px-2 py-1 rounded-md select-all">
+          {process.env.NEXT_PUBLIC_GIT_HASH} · {process.env.NEXT_PUBLIC_BUILD_TIME?.slice(0, 16)}
+        </div>
+      )}
+
       {/* Comment input popover */}
       {commentDraft && (
         <CommentInput
