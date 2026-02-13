@@ -186,8 +186,8 @@ setTimeout(reportHeight, 1500);
           />
         )}
 
-        {/* Comment pins */}
-        {iteration.comments.map((comment) => (
+        {/* Comment pins — only visible in comment mode */}
+        {isCommentMode && iteration.comments.map((comment) => (
           <CommentPin
             key={comment.id}
             comment={comment}
@@ -274,6 +274,12 @@ function RemixButton({ iteration, onRemix }: { iteration: DesignIteration; onRem
   );
 }
 
+const STATUS_COLORS = {
+  waiting: { bg: "bg-gray-400", shadow: "rgba(156,163,175,0.4)", anchor: "bg-gray-400/60", ping: "bg-gray-400/30" },
+  working: { bg: "bg-amber-500", shadow: "rgba(245,158,11,0.4)", anchor: "bg-amber-400/60", ping: "bg-amber-400/30" },
+  done:    { bg: "bg-emerald-500", shadow: "rgba(16,185,129,0.4)", anchor: "bg-emerald-400/60", ping: "bg-emerald-400/30" },
+} as const;
+
 function CommentPin({
   comment,
   onClick,
@@ -288,6 +294,10 @@ function CommentPin({
     return () => clearTimeout(timer);
   }, []);
 
+  const status = comment.status || "waiting";
+  const colors = STATUS_COLORS[status];
+  const isWorking = status === "working";
+
   return (
     <div
       className="absolute z-20"
@@ -296,19 +306,20 @@ function CommentPin({
         top: comment.position.y - 14,
       }}
     >
-      {isNew && (
-        <span className="absolute inset-0 rounded-full bg-blue-400/30 animate-ping" />
+      {(isNew || isWorking) && (
+        <span className={`absolute inset-0 rounded-full ${colors.ping} animate-ping`} />
       )}
-      <span className="absolute left-1/2 -translate-x-1/2 top-full w-0.5 h-2 bg-blue-400/60" />
+      <span className={`absolute left-1/2 -translate-x-1/2 top-full w-0.5 h-2 ${colors.anchor}`} />
       <button
-        className="relative w-7 h-7 rounded-full bg-blue-500 text-white text-[11px] font-bold flex items-center justify-center shadow-[0_2px_8px_rgba(59,130,246,0.4)] hover:bg-blue-600 hover:scale-110 transition-all cursor-pointer border-2 border-white"
+        className={`relative w-7 h-7 rounded-full ${colors.bg} text-white text-[11px] font-bold flex items-center justify-center hover:scale-110 transition-all cursor-pointer border-2 border-white`}
+        style={{ boxShadow: `0 2px 8px ${colors.shadow}` }}
         onClick={(e) => {
           e.stopPropagation();
           onClick();
         }}
-        title={comment.text}
+        title={comment.aiResponse || comment.text}
       >
-        {comment.number}
+        {status === "done" ? "✓" : comment.number}
       </button>
     </div>
   );

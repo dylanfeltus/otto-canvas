@@ -509,12 +509,14 @@ export default function Home() {
       if (!commentDraft) return;
       commentCountRef.current += 1;
 
+      const commentId = `comment-${Date.now()}`;
       const newComment: CommentType = {
-        id: `comment-${Date.now()}`,
+        id: commentId,
         position: commentDraft.position,
         text,
         number: commentCountRef.current,
         createdAt: Date.now(),
+        status: "waiting",
       };
 
       // Add comment to the iteration
@@ -539,8 +541,30 @@ export default function Home() {
 
       setCommentDraft(null);
 
+      const updateComment = (iterId: string, cId: string, update: Partial<CommentType>) => {
+        setGroups((prev) =>
+          prev.map((g) => ({
+            ...g,
+            iterations: g.iterations.map((iter) => {
+              if (iter.id !== iterId) return iter;
+              return {
+                ...iter,
+                comments: iter.comments.map((c) =>
+                  c.id === cId ? { ...c, ...update } : c
+                ),
+              };
+            }),
+          }))
+        );
+      };
+
       // Trigger revision
       if (targetIteration) {
+        const iterId = commentDraft.iterationId;
+
+        // Mark comment as working
+        updateComment(iterId, commentId, { status: "working" });
+
         try {
           const res = await fetch("/api/generate", {
             method: "POST",
@@ -557,35 +581,44 @@ export default function Home() {
           if (!res.ok) throw new Error("Revision failed");
 
           const data = await res.json();
+          const newHtml = data.iteration?.html || data.iterations?.[0]?.html;
 
+          // Update frame with revised HTML
           setGroups((prev) =>
             prev.map((g) => ({
               ...g,
               iterations: g.iterations.map((iter) => {
-                if (iter.id === commentDraft.iterationId) {
-                  return {
-                    ...iter,
-                    html: data.iteration?.html || data.iterations?.[0]?.html || iter.html,
-                    isRegenerating: false,
-                  };
-                }
-                return iter;
+                if (iter.id !== iterId) return iter;
+                return {
+                  ...iter,
+                  html: newHtml || iter.html,
+                  isRegenerating: false,
+                };
               }),
             }))
           );
+
+          // Mark comment as done with response
+          updateComment(iterId, commentId, {
+            status: "done",
+            aiResponse: `✅ Applied: "${text.length > 60 ? text.slice(0, 60) + "…" : text}"`,
+          });
+
         } catch (err) {
           console.error("Revision failed:", err);
           setGroups((prev) =>
             prev.map((g) => ({
               ...g,
               iterations: g.iterations.map((iter) => {
-                if (iter.id === commentDraft.iterationId) {
-                  return { ...iter, isRegenerating: false };
-                }
-                return iter;
+                if (iter.id !== iterId) return iter;
+                return { ...iter, isRegenerating: false };
               }),
             }))
           );
+          updateComment(iterId, commentId, {
+            status: "done",
+            aiResponse: "⚠️ Revision failed. Try again.",
+          });
         }
       }
     },

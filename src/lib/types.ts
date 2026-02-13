@@ -16,6 +16,8 @@ export interface DesignIteration {
   isRegenerating?: boolean;
 }
 
+export type CommentStatus = "waiting" | "working" | "done";
+
 export interface Comment {
   id: string;
   position: Point; // relative to the iteration
@@ -23,6 +25,8 @@ export interface Comment {
   number: number;
   resolved?: boolean;
   createdAt: number;
+  status?: CommentStatus;
+  aiResponse?: string;
 }
 
 export interface GenerationGroup {
