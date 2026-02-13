@@ -198,7 +198,7 @@ export default function Home() {
               variationIndex: i,
               concept: concepts[i] || undefined,
               apiKey: settings.apiKey || undefined,
-              model: settings.model,
+              model: settings.model, systemPrompt: settings.systemPrompt || undefined,
             }),
             signal: controller.signal,
           });
@@ -323,7 +323,7 @@ export default function Home() {
             revision: remixPrompt,
             existingHtml: sourceIteration.html,
             apiKey: settings.apiKey || undefined,
-            model: settings.model,
+            model: settings.model, systemPrompt: settings.systemPrompt || undefined,
           }),
           signal: controller.signal,
         });
@@ -451,7 +451,7 @@ export default function Home() {
               revision: text,
               existingHtml: (targetIteration as DesignIteration).html,
               apiKey: settings.apiKey || undefined,
-              model: settings.model,
+              model: settings.model, systemPrompt: settings.systemPrompt || undefined,
             }),
           });
 

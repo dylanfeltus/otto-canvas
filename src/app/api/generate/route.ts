@@ -61,7 +61,7 @@ const VARIATION_STYLES = [
 
 export async function POST(req: NextRequest) {
   try {
-    const { prompt, count = 4, revision, existingHtml, apiKey, model, variationIndex, concept } = await req.json();
+    const { prompt, count = 4, revision, existingHtml, apiKey, model, variationIndex, concept, systemPrompt } = await req.json();
 
     if (!prompt) {
       return NextResponse.json({ error: "Prompt required" }, { status: 400 });
@@ -72,15 +72,14 @@ export async function POST(req: NextRequest) {
 
     if (revision && existingHtml) {
       const style = variationIndex !== undefined ? VARIATION_STYLES[variationIndex] || VARIATION_STYLES[0] : undefined;
-      const result = await generateSingle(client, useModel, prompt, revision, existingHtml, style, variationIndex);
+      const result = await generateSingle(client, useModel, prompt, revision, existingHtml, style, variationIndex, systemPrompt);
       return NextResponse.json({ iteration: result });
     }
 
     // Single variation mode (sequential generation from frontend)
     if (variationIndex !== undefined) {
-      // Use concept from planning call if provided, otherwise fall back to preset styles
       const style = concept || VARIATION_STYLES[variationIndex] || VARIATION_STYLES[0];
-      const result = await generateVariation(client, useModel, prompt, style, variationIndex);
+      const result = await generateVariation(client, useModel, prompt, style, variationIndex, systemPrompt);
       return NextResponse.json({ iteration: result });
     }
 
@@ -109,12 +108,15 @@ async function generateVariation(
   model: string,
   prompt: string,
   style: string,
-  index: number
+  index: number,
+  systemPrompt?: string
 ): Promise<{ html: string; label: string; width?: number; height?: number }> {
+  const customInstructions = systemPrompt ? `\n\nADDITIONAL INSTRUCTIONS FROM USER:\n${systemPrompt}\n` : "";
+
   const { result: message } = await callWithFallback(client, model, [
     {
       role: "user",
-      content: `You are a world-class visual designer. Generate a stunning, self-contained HTML/CSS design.
+      content: `You are a world-class visual designer. Generate a stunning, self-contained HTML/CSS design.${customInstructions}
 
 Design request: "${prompt}"
 Style direction: ${style}
@@ -176,8 +178,10 @@ async function generateSingle(
   revision: string,
   existingHtml: string,
   styleVariation?: string,
-  variationIndex?: number
+  variationIndex?: number,
+  systemPrompt?: string
 ): Promise<{ html: string; label: string; width?: number; height?: number }> {
+  const customInstructions = systemPrompt ? `\n\nADDITIONAL INSTRUCTIONS FROM USER:\n${systemPrompt}\n` : "";
   const styleInstruction = styleVariation
     ? `\n\nStyle direction for THIS variation: ${styleVariation}\nMake this variation feel distinctly different from others while keeping the same concept and revision.`
     : "";
@@ -185,7 +189,9 @@ async function generateSingle(
   const { result: message } = await callWithFallback(client, model, [
     {
       role: "user",
-      content: `You are a world-class visual designer. Here is an existing HTML design:
+      content: `You are a world-class visual designer.${customInstructions}
+
+Here is an existing HTML design:
 
 ${existingHtml}
 

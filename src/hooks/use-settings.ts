@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect } from "react";
 export interface Settings {
   apiKey: string;
   model: string;
+  systemPrompt: string;
 }
 
 const STORAGE_KEY = "otto-settings";
@@ -22,6 +23,7 @@ export function useSettings() {
   const [settings, setSettingsState] = useState<Settings>({
     apiKey: "",
     model: DEFAULT_MODEL,
+    systemPrompt: "",
   });
   const [loaded, setLoaded] = useState(false);
 
@@ -34,6 +36,7 @@ export function useSettings() {
         setSettingsState({
           apiKey: parsed.apiKey || "",
           model: parsed.model || DEFAULT_MODEL,
+          systemPrompt: parsed.systemPrompt || "",
         });
       }
     } catch {}
