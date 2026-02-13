@@ -105,7 +105,10 @@ export function DesignCard({
     onAddComment(iteration.id, { x, y });
   };
 
-  const frameHeight = iteration.isLoading ? 320 : contentHeight;
+  // Use measured content height, but cap to model hint + buffer if measurement seems off
+  const maxReasonableHeight = (iteration.height || 800) + 40;
+  const measuredHeight = measuredRef.current ? contentHeight : (iteration.height || 320);
+  const frameHeight = iteration.isLoading ? 320 : Math.min(measuredHeight, maxReasonableHeight);
 
   return (
     <div

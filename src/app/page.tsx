@@ -154,71 +154,93 @@ export default function Home() {
         const controller = new AbortController();
         abortRef.current = controller;
 
-        const res = await fetch("/api/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt, count: iterationCount, apiKey: settings.apiKey || undefined, model: settings.model }),
-          signal: controller.signal,
-        });
+        // Generate sequentially — each variation appears as it completes
+        const completedIterations: Array<{ width?: number; height?: number }> = [];
 
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || "Generation failed");
-        }
+        for (let i = 0; i < iterationCount; i++) {
+          if (controller.signal.aborted) break;
 
-        const data = await res.json();
-
-        setGroups((prev) =>
-          prev.map((g) => {
-            if (g.id !== groupId) return g;
-            return {
-              ...g,
-              iterations: g.iterations.map((iter, i) => ({
-                ...iter,
-                html: data.iterations[i]?.html || "<p>Failed to generate</p>",
-                label: data.iterations[i]?.label || iter.label,
-                width: data.iterations[i]?.width || iter.width,
-                height: data.iterations[i]?.height || iter.height,
-                isLoading: false,
-              })),
-            };
-          })
-        );
-
-        // Zoom-to-fit: adjust canvas to show all new frames
-        setTimeout(() => {
-          const iters = data.iterations as Array<{ width?: number; height?: number }>;
-          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-          positions.forEach((pos, i) => {
-            const w = iters[i]?.width || FRAME_WIDTH;
-            const h = iters[i]?.height || ROW_HEIGHT;
-            minX = Math.min(minX, pos.x);
-            minY = Math.min(minY, pos.y);
-            maxX = Math.max(maxX, pos.x + w);
-            maxY = Math.max(maxY, pos.y + h);
+          const res = await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt,
+              variationIndex: i,
+              apiKey: settings.apiKey || undefined,
+              model: settings.model,
+            }),
+            signal: controller.signal,
           });
-          canvas.zoomToFit({ minX, minY, maxX, maxY });
-        }, 100);
-      } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") {
-          // User cancelled — remove the placeholder group
-          setGroups((prev) => prev.filter((g) => g.id !== groupId));
-        } else {
-          const msg = err instanceof Error ? err.message : "Generation failed";
-          console.error("Generation failed:", msg);
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Generation failed");
+          }
+
+          const data = await res.json();
+          const iter = data.iteration;
+          completedIterations.push(iter);
+
+          // Update this specific iteration immediately
           setGroups((prev) =>
             prev.map((g) => {
               if (g.id !== groupId) return g;
               return {
                 ...g,
-                iterations: g.iterations.map((iter) => ({
-                  ...iter,
-                  html: `<div style="padding:32px;color:#666;font-family:system-ui">
-                    <p style="font-size:14px">⚠ ${msg}</p>
-                    <p style="font-size:12px;margin-top:8px;color:#999">Check Settings or try again</p>
-                  </div>`,
-                  isLoading: false,
-                })),
+                iterations: g.iterations.map((existing, idx) => {
+                  if (idx !== i) return existing;
+                  return {
+                    ...existing,
+                    html: iter?.html || "<p>Failed to generate</p>",
+                    label: iter?.label || existing.label,
+                    width: iter?.width || existing.width,
+                    height: iter?.height || existing.height,
+                    isLoading: false,
+                  };
+                }),
+              };
+            })
+          );
+
+          // Zoom-to-fit after first result, and again after last
+          if (i === 0 || i === iterationCount - 1) {
+            setTimeout(() => {
+              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+              positions.forEach((pos, idx) => {
+                const w = completedIterations[idx]?.width || FRAME_WIDTH;
+                const h = completedIterations[idx]?.height || 400;
+                minX = Math.min(minX, pos.x);
+                minY = Math.min(minY, pos.y);
+                maxX = Math.max(maxX, pos.x + w);
+                maxY = Math.max(maxY, pos.y + h);
+              });
+              canvas.zoomToFit({ minX, minY, maxX, maxY });
+            }, 100);
+          }
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") {
+          setGroups((prev) => prev.filter((g) => g.id !== groupId));
+        } else {
+          const msg = err instanceof Error ? err.message : "Generation failed";
+          console.error("Generation failed:", msg);
+          // Mark remaining loading iterations as failed
+          setGroups((prev) =>
+            prev.map((g) => {
+              if (g.id !== groupId) return g;
+              return {
+                ...g,
+                iterations: g.iterations.map((iter) => {
+                  if (!iter.isLoading) return iter; // already completed
+                  return {
+                    ...iter,
+                    html: `<div style="padding:32px;color:#666;font-family:system-ui">
+                      <p style="font-size:14px">⚠ ${msg}</p>
+                      <p style="font-size:12px;margin-top:8px;color:#999">Check Settings or try again</p>
+                    </div>`,
+                    isLoading: false,
+                  };
+                }),
               };
             })
           );

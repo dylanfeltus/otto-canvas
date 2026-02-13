@@ -61,7 +61,7 @@ const VARIATION_STYLES = [
 
 export async function POST(req: NextRequest) {
   try {
-    const { prompt, count = 4, revision, existingHtml, apiKey, model } = await req.json();
+    const { prompt, count = 4, revision, existingHtml, apiKey, model, variationIndex } = await req.json();
 
     if (!prompt) {
       return NextResponse.json({ error: "Prompt required" }, { status: 400 });
@@ -75,6 +75,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ iterations: [result] });
     }
 
+    // Single variation mode (sequential generation from frontend)
+    if (variationIndex !== undefined) {
+      const style = VARIATION_STYLES[variationIndex] || VARIATION_STYLES[0];
+      const result = await generateVariation(client, useModel, prompt, style, variationIndex);
+      return NextResponse.json({ iteration: result });
+    }
+
+    // Legacy: generate all at once
     const variations = VARIATION_STYLES.slice(0, count);
     const results = await Promise.all(
       variations.map((style, i) => generateVariation(client, useModel, prompt, style, i))
