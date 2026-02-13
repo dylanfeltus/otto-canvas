@@ -5,13 +5,13 @@ export const maxDuration = 60;
 
 // Fallback chain — if requested model fails, try next one down
 const MODEL_FALLBACK_CHAIN = [
-  "claude-opus-4-6-20250219",
-  "claude-sonnet-4-5-20241022",
-  "claude-opus-4-20250514",
-  "claude-sonnet-4-20250514",
+  "claude-opus-4-6",
+  "claude-sonnet-4-5",
+  "claude-opus-4",
+  "claude-sonnet-4",
 ];
 
-const DEFAULT_MODEL = "claude-sonnet-4-5-20241022";
+const DEFAULT_MODEL = "claude-sonnet-4-5";
 
 function getClient(apiKey?: string): Anthropic {
   if (apiKey) return new Anthropic({ apiKey });
