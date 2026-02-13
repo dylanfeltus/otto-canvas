@@ -204,15 +204,23 @@ async function generateSingle(
   const { result: message } = await callWithFallback(client, model, [
     {
       role: "user",
-      content: `You are a world-class visual designer.${customInstructions}
+      content: `You are a world-class visual designer. You are EDITING an existing design — not creating a new one.${customInstructions}
 
-Here is an existing HTML design:
+Here is the EXISTING HTML design:
 
 ${existingHtml}
 
 The original request was: "${originalPrompt}"
 
-The user wants to REMIX this design: "${revision}"${styleInstruction}
+The user wants this specific change: "${revision}"
+
+CRITICAL RULES:
+- Return exactly ONE design — the existing design with ONLY the requested change applied
+- Do NOT generate multiple variations, alternatives, or options
+- Do NOT stack multiple versions vertically or horizontally
+- PRESERVE the existing layout, structure, and content
+- ONLY modify what was specifically requested — change nothing else
+- Keep the same dimensions
 
 ABSOLUTELY NO MOTION — no CSS animations, transitions, @keyframes, hover effects, or any dynamic behavior. All designs must be completely static.
 
@@ -223,8 +231,7 @@ OUTPUT FORMAT:
 - Then the HTML — no explanation, no markdown, no code fences
 - Include ALL CSS inline in a <style> tag
 - Self-contained, no external dependencies
-- Create something that feels like a distinct variation, not a copy
-- Use the same dimensions unless the remix specifically changes the format`,
+- Use the same dimensions as the original`,
     },
   ], 8192);
 
