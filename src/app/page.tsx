@@ -1086,8 +1086,8 @@ export default function Home() {
         />
       )}
 
-      {/* Onboarding: Key banner (dismissed without entering keys) */}
-      {onboarding.showKeyBanner && (
+      {/* Onboarding: Key banner (no API key set and not showing welcome modal) */}
+      {onboarding.loaded && !settings.apiKey && !onboarding.showWelcome && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40">
           <button
             onClick={() => setShowSettings(true)}

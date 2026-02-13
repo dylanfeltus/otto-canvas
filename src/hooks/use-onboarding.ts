@@ -38,14 +38,13 @@ export function useOnboarding() {
 
   const showWelcome = loaded && !state.keysEntered && !state.dismissed;
   const showTour = loaded && state.keysEntered && !state.tourCompleted;
-  const showKeyBanner = loaded && state.dismissed && !state.keysEntered;
+  // Banner is driven externally — consumer checks actual settings.apiKey
 
   return {
     state,
     loaded,
     showWelcome,
     showTour,
-    showKeyBanner,
     completeKeys: () => update({ keysEntered: true, dismissed: false }),
     completeTour: () => update({ tourCompleted: true }),
     dismiss: () => update({ dismissed: true }),
