@@ -91,12 +91,12 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
             {isOwnKey && (
               <button
                 onClick={handleClearKey}
-                className="mt-2 text-[11px] text-gray-400 hover:text-red-500 transition-colors"
+                className="mt-2 text-[11px] text-gray-500 hover:text-red-500 transition-colors"
               >
                 Remove key &amp; use demo
               </button>
             )}
-            <p className="mt-2 text-[11px] text-gray-400 leading-relaxed">
+            <p className="mt-2 text-[11px] text-gray-500 leading-relaxed">
               Your key is stored in localStorage and sent directly to Anthropic. Never stored on our servers.
             </p>
           </div>
@@ -137,10 +137,10 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
                     <div className="flex items-center gap-2">
                       <div>
                         <span className="text-[13px] font-medium">{m.label}</span>
-                        <span className="text-[11px] text-gray-400 ml-2">{m.desc}</span>
+                        <span className="text-[11px] text-gray-500 ml-2">{m.desc}</span>
                       </div>
                       {!available && isOwnKey && (
-                        <span className="text-[10px] text-gray-400 bg-gray-200/50 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] text-gray-500 bg-gray-200/50 px-1.5 py-0.5 rounded">
                           unavailable
                         </span>
                       )}
@@ -155,7 +155,7 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
               })}
             </div>
             {isOwnKey && availableModels && (
-              <p className="mt-2 text-[10px] text-gray-400">
+              <p className="mt-2 text-[10px] text-gray-500">
                 {Object.values(availableModels).filter(Boolean).length} of {MODELS.length} models available on your key
               </p>
             )}
@@ -176,9 +176,9 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
                 value={settings.systemPrompt}
                 onChange={(e) => onUpdate({ systemPrompt: e.target.value })}
                 placeholder="Add custom instructions for the AI designer...&#10;&#10;e.g. &quot;You are a Facebook ad designer. Use 1200x628, minimal text, strong visual hierarchy...&quot;"
-                className="w-full h-32 px-4 py-3 rounded-xl bg-white/70 border border-gray-200/50 text-[13px] text-gray-700 placeholder-gray-400/50 outline-none focus:border-blue-300/50 focus:ring-1 focus:ring-blue-200/30 resize-y font-mono"
+                className="w-full h-32 px-4 py-3 rounded-xl bg-white/70 border border-gray-200/50 text-[13px] text-gray-700 placeholder-gray-400 outline-none focus:border-blue-300/50 focus:ring-1 focus:ring-blue-200/30 resize-y font-mono"
               />
-              <p className="mt-1.5 text-[10px] text-gray-400">
+              <p className="mt-1.5 text-[10px] text-gray-500">
                 Prepended to every generation. Use for brand guidelines, design skills, or style overrides.
               </p>
             </div>
@@ -187,7 +187,7 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
 
         {/* Footer */}
         <div className="p-6 border-t border-gray-200/30 flex items-center justify-between">
-          <span className="text-[11px] text-gray-400">
+          <span className="text-[11px] text-gray-500">
             {isOwnKey ? "🔑 Own key" : "🌐 Demo key"} · {MODELS.find((m) => m.id === settings.model)?.label}
           </span>
           <button
