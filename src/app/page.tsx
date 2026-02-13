@@ -248,7 +248,13 @@ export default function Home() {
         }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {
-          setGroups((prev) => prev.filter((g) => g.id !== groupId));
+          // Keep completed iterations, remove any still-loading ones
+          setGroups((prev) =>
+            prev.map((g) => {
+              if (g.id !== groupId) return g;
+              return { ...g, iterations: g.iterations.filter((iter) => !iter.isLoading) };
+            }).filter((g) => g.iterations.length > 0)
+          );
         } else {
           const msg = err instanceof Error ? err.message : "Generation failed";
           console.error("Generation failed:", msg);
@@ -354,7 +360,12 @@ export default function Home() {
         );
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {
-          setGroups((prev) => prev.filter((g) => g.id !== newGroup.id));
+          setGroups((prev) =>
+            prev.map((g) => {
+              if (g.id !== newGroup.id) return g;
+              return { ...g, iterations: g.iterations.filter((iter) => !iter.isLoading) };
+            }).filter((g) => g.iterations.length > 0)
+          );
         } else {
           const msg = err instanceof Error ? err.message : "Remix failed";
           setGroups((prev) =>
