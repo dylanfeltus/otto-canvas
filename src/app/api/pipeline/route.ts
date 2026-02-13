@@ -51,6 +51,10 @@ function encodeResult(html: string, label: string, width?: number, height?: numb
   return `data: ${JSON.stringify({ type: "result", html, label, width, height })}\n\n`;
 }
 
+function encodePreview(html: string, width?: number, height?: number) {
+  return `data: ${JSON.stringify({ type: "preview", html, width, height })}\n\n`;
+}
+
 function encodeError(message: string) {
   return `data: ${JSON.stringify({ type: "error", message })}\n\n`;
 }
@@ -168,6 +172,7 @@ async function generateImages(
               responseModalities: ["image", "text"],
             },
           });
+          console.log(`Gemini response for ph ${globalIdx}:`, JSON.stringify(response.candidates?.[0]?.content?.parts?.map(p => ({ hasImage: !!p.inlineData, text: p.text?.slice(0, 50) }))));
 
           // Extract image from response parts
           const parts = response.candidates?.[0]?.content?.parts;
@@ -338,6 +343,9 @@ export async function POST(req: NextRequest) {
         const width = layout.width;
         const height = layout.height;
 
+        // Send layout preview so UI updates immediately
+        send(encodePreview(html, width, height));
+
         // Parse placeholders
         const placeholders = parsePlaceholders(html);
 
@@ -351,6 +359,8 @@ export async function POST(req: NextRequest) {
             if (imageMap.size > 0) {
               send(encodeStage("compositing", 0.65));
               html = compositeImages(html, placeholders, imageMap);
+              // Send composited preview so UI shows images before QA
+              send(encodePreview(html, width, height));
             }
           } catch (imgErr) {
             console.warn("Image pipeline failed, continuing with placeholders:", imgErr);

@@ -272,6 +272,23 @@ export default function Home() {
                 ...prev,
                 [iterId]: { stage: event.stage, progress: event.progress },
               }));
+            } else if (event.type === "preview") {
+              // Intermediate preview — update frame in-place while still loading
+              setGroups((prev) =>
+                prev.map((g) => ({
+                  ...g,
+                  iterations: g.iterations.map((iter) => {
+                    if (iter.id !== iterId) return iter;
+                    return {
+                      ...iter,
+                      html: event.html,
+                      width: event.width || iter.width,
+                      height: event.height || iter.height,
+                      // Keep isLoading true — pipeline still running
+                    };
+                  }),
+                }))
+              );
             } else if (event.type === "result") {
               result = {
                 html: event.html,
