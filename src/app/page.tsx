@@ -124,6 +124,63 @@ export default function Home() {
     [canvas.offset, canvas.scale, groups]
   );
 
+  const handleExportOtto = useCallback(() => {
+    const data = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      groups: groups.map((g) => ({
+        ...g,
+        iterations: g.iterations.map((iter) => ({
+          id: iter.id,
+          label: iter.label,
+          html: iter.html,
+          width: iter.width,
+          height: iter.height,
+          position: iter.position,
+        })),
+      })),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `canvas-${Date.now()}.otto`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [groups]);
+
+  const handleImportOtto = useCallback(() => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".otto";
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target?.result as string);
+          if (!data.groups || !Array.isArray(data.groups)) {
+            alert("Invalid .otto file");
+            return;
+          }
+          setGroups(data.groups.map((g: Record<string, unknown>) => ({
+            ...g,
+            iterations: (g.iterations as Record<string, unknown>[]).map((iter: Record<string, unknown>) => ({
+              ...iter,
+              isLoading: false,
+              isRegenerating: false,
+            })),
+          })));
+        } catch {
+          alert("Failed to parse .otto file");
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }, []);
+
   const handleGenerate = useCallback(
     async (prompt: string) => {
       setIsGenerating(true);
@@ -647,6 +704,8 @@ export default function Home() {
         onOpenSettings={() => setShowSettings(true)}
         onOpenLibrary={() => setShowLibrary(true)}
         onNewSession={() => setShowResetConfirm(true)}
+        onExport={handleExportOtto}
+        onImport={handleImportOtto}
         isOwnKey={isOwnKey}
         model={settings.model}
         hasFrames={groups.length > 0}
