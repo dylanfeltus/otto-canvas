@@ -84,17 +84,17 @@ export function OnboardingModal({ onComplete, onDismiss }: OnboardingModalProps)
                 Add any of these keys to enable real images. Claude picks the best source for each image automatically.
               </p>
 
-              {/* Unsplash */}
+              {/* Gemini */}
               <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-200/40">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-semibold text-gray-600">📷 Unsplash — real photos</span>
-                  <a href="https://unsplash.com/developers" target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-500 hover:underline">Get key →</a>
+                  <span className="text-[11px] font-semibold text-gray-600">✨ Gemini — design assets & patterns</span>
+                  <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-500 hover:underline">Get key →</a>
                 </div>
                 <input
-                  type="password"
-                  value={unsplashKey}
-                  onChange={(e) => setUnsplashKey(e.target.value)}
-                  placeholder="Access key..."
+                  type={showGeminiKey ? "text" : "password"}
+                  value={geminiKey}
+                  onChange={(e) => setGeminiKey(e.target.value)}
+                  placeholder="AIza..."
                   className="w-full bg-white/60 border border-gray-200/60 rounded-lg px-3 py-2 text-[12px] text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400/20"
                 />
               </div>
@@ -114,17 +114,17 @@ export function OnboardingModal({ onComplete, onDismiss }: OnboardingModalProps)
                 />
               </div>
 
-              {/* Gemini */}
+              {/* Unsplash */}
               <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-200/40">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-semibold text-gray-600">✨ Gemini — design assets & patterns</span>
-                  <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-500 hover:underline">Get key →</a>
+                  <span className="text-[11px] font-semibold text-gray-600">📷 Unsplash — real photos</span>
+                  <a href="https://unsplash.com/developers" target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-500 hover:underline">Get key →</a>
                 </div>
                 <input
-                  type={showGeminiKey ? "text" : "password"}
-                  value={geminiKey}
-                  onChange={(e) => setGeminiKey(e.target.value)}
-                  placeholder="AIza..."
+                  type="password"
+                  value={unsplashKey}
+                  onChange={(e) => setUnsplashKey(e.target.value)}
+                  placeholder="Access key..."
                   className="w-full bg-white/60 border border-gray-200/60 rounded-lg px-3 py-2 text-[12px] text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400/20"
                 />
               </div>

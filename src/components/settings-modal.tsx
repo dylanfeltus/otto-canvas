@@ -333,19 +333,19 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
             </p>
 
             <div className="space-y-3">
-              {/* Unsplash */}
+              {/* Gemini */}
               <ImageKeyField
-                label="Unsplash"
-                icon="📷"
-                desc="Real photos — landscapes, people, food, architecture"
-                placeholder="Access key..."
-                value={unsplashKey}
-                savedValue={settings.unsplashKey}
-                onChange={setUnsplashKey}
-                onSave={() => onUpdate({ unsplashKey: unsplashKey.trim() })}
-                onRemove={() => { setUnsplashKey(""); onUpdate({ unsplashKey: "" }); }}
-                linkUrl="https://unsplash.com/developers"
-                linkLabel="unsplash.com/developers"
+                label="Gemini"
+                icon="✨"
+                desc="Design assets, UI elements, icons, patterns"
+                placeholder="AIza..."
+                value={geminiKey}
+                savedValue={settings.geminiKey}
+                onChange={setGeminiKey}
+                onSave={() => onUpdate({ geminiKey: geminiKey.trim() })}
+                onRemove={() => { setGeminiKey(""); onUpdate({ geminiKey: "" }); }}
+                linkUrl="https://aistudio.google.com/apikey"
+                linkLabel="aistudio.google.com"
               />
 
               {/* OpenAI / DALL-E */}
@@ -363,19 +363,19 @@ export function SettingsModal({ settings, onUpdate, onClose, isOwnKey, available
                 linkLabel="platform.openai.com"
               />
 
-              {/* Gemini */}
+              {/* Unsplash */}
               <ImageKeyField
-                label="Gemini"
-                icon="✨"
-                desc="Design assets, UI elements, icons, patterns"
-                placeholder="AIza..."
-                value={geminiKey}
-                savedValue={settings.geminiKey}
-                onChange={setGeminiKey}
-                onSave={() => onUpdate({ geminiKey: geminiKey.trim() })}
-                onRemove={() => { setGeminiKey(""); onUpdate({ geminiKey: "" }); }}
-                linkUrl="https://aistudio.google.com/apikey"
-                linkLabel="aistudio.google.com"
+                label="Unsplash"
+                icon="📷"
+                desc="Real photos — landscapes, people, food, architecture"
+                placeholder="Access key..."
+                value={unsplashKey}
+                savedValue={settings.unsplashKey}
+                onChange={setUnsplashKey}
+                onSave={() => onUpdate({ unsplashKey: unsplashKey.trim() })}
+                onRemove={() => { setUnsplashKey(""); onUpdate({ unsplashKey: "" }); }}
+                linkUrl="https://unsplash.com/developers"
+                linkLabel="unsplash.com/developers"
               />
             </div>
           </div>
