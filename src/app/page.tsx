@@ -224,6 +224,7 @@ export default function Home() {
       index: number,
       critique: string | undefined,
       signal: AbortSignal,
+      revisionOpts?: { revision: string; existingHtml: string },
     ): Promise<{ html: string; label: string; width?: number; height?: number; critique?: string }> => {
 
       const res = await fetch("/api/pipeline", {
@@ -239,7 +240,8 @@ export default function Home() {
           systemPrompt: settings.systemPrompt || undefined,
           critique,
           enableImages: !!settings.geminiKey,
-          enableQA: true,
+          enableQA: !revisionOpts, // Skip QA for revisions — they're targeted edits
+          ...(revisionOpts || {}),
         }),
         signal,
       });
@@ -586,32 +588,23 @@ export default function Home() {
       };
 
       setGroups((prev) => [...prev, newGroup]);
+      setPipelineStages((prev) => ({ ...prev, [remixId]: { stage: "layout", progress: 0.2 } }));
 
       try {
         const controller = new AbortController();
         abortRef.current = controller;
 
-        const res = await fetch("/api/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: sourceIteration.prompt,
-            revision: remixPrompt,
-            existingHtml: sourceIteration.html,
-            apiKey: settings.apiKey || undefined,
-            model: settings.model, systemPrompt: settings.systemPrompt || undefined,
-          }),
-          signal: controller.signal,
-        });
+        const result = await runPipelineForFrame(
+          remixId,
+          sourceIteration.prompt || "",
+          "remix",
+          0,
+          undefined,
+          controller.signal,
+          { revision: remixPrompt, existingHtml: sourceIteration.html },
+        );
 
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || "Remix failed");
-        }
-
-        const data = await res.json();
-        const iter = data.iteration || data.iterations?.[0];
-
+        setPipelineStages((prev) => ({ ...prev, [remixId]: { stage: "done", progress: 1 } }));
         setGroups((prev) =>
           prev.map((g) => {
             if (g.id !== newGroup.id) return g;
@@ -619,10 +612,10 @@ export default function Home() {
               ...g,
               iterations: [{
                 ...placeholder,
-                html: iter?.html || "<p>Remix failed</p>",
-                label: iter?.label || "Remix",
-                width: iter?.width || placeholder.width,
-                height: iter?.height || placeholder.height,
+                html: result.html || "<p>Remix failed</p>",
+                label: result.label || "Remix",
+                width: result.width || placeholder.width,
+                height: result.height || placeholder.height,
                 isLoading: false,
               }],
             };
@@ -746,24 +739,23 @@ export default function Home() {
 
         // Mark comment as working
         updateComment(iterId, commentId, { status: "working" });
+        setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "layout", progress: 0.2 } }));
 
         try {
-          const res = await fetch("/api/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              prompt: (targetIteration as DesignIteration).prompt,
-              revision: text,
-              existingHtml: (targetIteration as DesignIteration).html,
-              apiKey: settings.apiKey || undefined,
-              model: settings.model, systemPrompt: settings.systemPrompt || undefined,
-            }),
-          });
+          const controller = new AbortController();
+          const typedTarget = targetIteration as DesignIteration;
 
-          if (!res.ok) throw new Error("Revision failed");
+          const result = await runPipelineForFrame(
+            iterId,
+            typedTarget.prompt || "",
+            "revision",
+            0,
+            undefined,
+            controller.signal,
+            { revision: text, existingHtml: typedTarget.html },
+          );
 
-          const data = await res.json();
-          const newHtml = data.iteration?.html || data.iterations?.[0]?.html;
+          setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "done", progress: 1 } }));
 
           // Update frame with revised HTML
           setGroups((prev) =>
@@ -773,7 +765,9 @@ export default function Home() {
                 if (iter.id !== iterId) return iter;
                 return {
                   ...iter,
-                  html: newHtml || iter.html,
+                  html: result.html || iter.html,
+                  width: result.width || iter.width,
+                  height: result.height || iter.height,
                   isRegenerating: false,
                 };
               }),
@@ -788,6 +782,7 @@ export default function Home() {
 
         } catch (err) {
           console.error("Revision failed:", err);
+          setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "error", progress: 0 } }));
           setGroups((prev) =>
             prev.map((g) => ({
               ...g,
@@ -804,7 +799,7 @@ export default function Home() {
         }
       }
     },
-    [commentDraft]
+    [commentDraft, runPipelineForFrame]
   );
 
   const handleClickComment = useCallback((comment: CommentType) => {

@@ -27,11 +27,14 @@ interface PipelineRequest {
   index: number;
   model?: string;
   apiKey?: string;
-  geminiKey?: string; // User's Gemini API key for image generation
+  geminiKey?: string;
   systemPrompt?: string;
-  critique?: string; // Feedback from previous frame
-  enableImages?: boolean; // Whether to run image generation
-  enableQA?: boolean; // Whether to run visual QA
+  critique?: string;
+  enableImages?: boolean;
+  enableQA?: boolean;
+  // Revision mode — edit existing HTML instead of generating from scratch
+  revision?: string;
+  existingHtml?: string;
 }
 
 interface Placeholder {
@@ -120,6 +123,62 @@ OUTPUT:
 - ALL CSS in a <style> tag at the top
 - Self-contained, no external dependencies
 - Generate exactly ONE design`,
+      },
+    ],
+  });
+
+  const raw = message.content[0].type === "text" ? message.content[0].text : "";
+  return parseHtmlWithSize(raw);
+}
+
+/** Stage 1 (revision mode): Edit existing HTML with a targeted change */
+async function generateRevision(
+  client: Anthropic,
+  model: string,
+  originalPrompt: string,
+  revision: string,
+  existingHtml: string,
+  systemPrompt?: string,
+): Promise<{ html: string; width?: number; height?: number }> {
+  const customBlock = systemPrompt
+    ? `\n\nADDITIONAL INSTRUCTIONS FROM USER:\n${systemPrompt}\n`
+    : "";
+
+  const message = await client.messages.create({
+    model,
+    max_tokens: 8192,
+    messages: [
+      {
+        role: "user",
+        content: `You are a world-class visual designer. You are EDITING an existing design — not creating a new one.${customBlock}
+
+Here is the EXISTING HTML design:
+
+${existingHtml}
+
+The original request was: "${originalPrompt}"
+
+The user wants this specific change: "${revision}"
+
+CRITICAL RULES:
+- Return exactly ONE design — the existing design with ONLY the requested change applied
+- Do NOT generate multiple variations, alternatives, or options
+- Do NOT stack multiple versions vertically or horizontally
+- PRESERVE the existing layout, structure, and content
+- ONLY modify what was specifically requested — change nothing else
+
+IMAGE PLACEHOLDERS — where the design needs a NEW photo/visual (only if the revision requires new imagery):
+- Use: <div data-placeholder="DESCRIPTION" data-ph-w="WIDTH" data-ph-h="HEIGHT" style="width:WIDTHpx;height:HEIGHT px;background:#e5e7eb;display:flex;align-items:center;justify-content:center;border-radius:8px;overflow:hidden;">
+    <span style="color:#9ca3af;font-size:12px;text-align:center;padding:8px;">DESCRIPTION</span>
+  </div>
+- Keep any existing <img> tags as-is unless the revision specifically asks to change them
+
+ABSOLUTELY NO MOTION — no CSS animations, transitions, @keyframes, hover effects.
+
+SIZE — output a size comment on the FIRST line:
+<!--size:WIDTHxHEIGHT-->
+
+OUTPUT: HTML only — no explanation, no markdown, no code fences. ALL CSS in a <style> tag.`,
       },
     ],
   });
@@ -321,25 +380,37 @@ export async function POST(req: NextRequest) {
     critique,
     enableImages = true,
     enableQA = true,
+    revision,
+    existingHtml,
   } = body;
 
   const useModel = model || DEFAULT_MODEL;
+  const isRevision = !!(revision && existingHtml);
 
   const stream = new ReadableStream({
     async start(controller) {
       const send = (chunk: string) => controller.enqueue(new TextEncoder().encode(chunk));
 
       try {
-        // Stage 1: Layout
+        // Stage 1: Layout (or Revision)
         send(encodeStage("layout", 0.2));
-        const layout = await generateLayout(
-          getAnthropicClient(apiKey),
-          useModel,
-          prompt,
-          style,
-          systemPrompt,
-          critique,
-        );
+        const layout = isRevision
+          ? await generateRevision(
+              getAnthropicClient(apiKey),
+              useModel,
+              prompt,
+              revision!,
+              existingHtml!,
+              systemPrompt,
+            )
+          : await generateLayout(
+              getAnthropicClient(apiKey),
+              useModel,
+              prompt,
+              style,
+              systemPrompt,
+              critique,
+            );
         let html = layout.html;
         const width = layout.width;
         const height = layout.height;
@@ -400,7 +471,7 @@ export async function POST(req: NextRequest) {
 
         // Stage 5: Done — send result
         send(encodeStage("done", 1.0));
-        send(encodeResult(html, `Variation ${index + 1}`, width, height));
+        send(encodeResult(html, isRevision ? "Revised" : `Variation ${index + 1}`, width, height));
 
         // Generate critique for next frame (if this isn't the last)
         try {
