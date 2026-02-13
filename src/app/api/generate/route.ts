@@ -148,14 +148,27 @@ DESIGN QUALITY RULES:
 - For marketing: fewer words, bigger type, more visual drama
 - For UI: proper spacing, clear labels, realistic placeholder content
 
+ABSOLUTELY NO MOTION:
+- NEVER use CSS animations, transitions, @keyframes, or any motion whatsoever
+- NEVER use :hover, :focus, or any interactive pseudo-classes that change appearance
+- NEVER use transform animations, opacity transitions, or any dynamic effects
+- All designs must be 100% static — this is a static design tool, not a web app
+- If you include ANY animation or transition, the design will be rejected
+
+IMAGE RULES:
+- NEVER use <img> tags or external image URLs — they will not load
+- Use CSS-only visuals: gradients, box-shadows, border-radius shapes, pseudo-elements
+- For image placeholders: use a colored div with dimensions and a subtle icon or text label
+- background-image with url() is NOT allowed — use CSS gradients only
+
 OUTPUT RULES:
 - First line: <!--size:WIDTHxHEIGHT-->
 - Then HTML only — no explanation, no markdown, no code fences
 - ALL CSS in a <style> tag at the top
-- Self-contained — no external dependencies, no images (use CSS shapes/gradients instead)
+- Self-contained — no external dependencies whatsoever
 - Use system font stack: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif
 - Root element width must match the size hint
-- IMPORTANT: Keep CSS concise. Avoid overly verbose styles. The HTML body content matters more than elaborate CSS animations.
+- IMPORTANT: Keep CSS concise. No animations, no transitions, no keyframes.
 - CRITICAL: Generate exactly ONE design per response. Never include multiple designs, multiple ad variations, or multiple versions in one HTML file. The system handles variations externally — you only produce a single, complete design each time.`,
     },
   ], 8192);
@@ -200,6 +213,10 @@ ${existingHtml}
 The original request was: "${originalPrompt}"
 
 The user wants to REMIX this design: "${revision}"${styleInstruction}
+
+ABSOLUTELY NO MOTION — no CSS animations, transitions, @keyframes, hover effects, or any dynamic behavior. All designs must be completely static.
+
+NO IMAGES — no <img> tags, no url() in CSS. Use CSS gradients, shapes, and pseudo-elements only.
 
 OUTPUT FORMAT:
 - Start with <!--size:WIDTHxHEIGHT--> on the first line

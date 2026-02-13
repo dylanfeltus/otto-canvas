@@ -204,7 +204,7 @@ export default function Home() {
   }, []);
 
   const handleGenerate = useCallback(
-    async (prompt: string) => {
+    async (prompt: string, requestedCount?: number) => {
       setIsGenerating(true);
       setGenStatus("Planning concepts…");
       const groupId = `group-${Date.now()}`;
@@ -215,23 +215,23 @@ export default function Home() {
         abortRef.current = controller;
 
         // Planning call — model decides how many concepts
-        let iterationCount = 4;
+        let iterationCount = requestedCount || 4;
         let concepts: string[] = [];
 
         try {
           const planRes = await fetch("/api/plan", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt, apiKey: settings.apiKey || undefined, model: settings.model }),
+            body: JSON.stringify({ prompt, count: iterationCount, apiKey: settings.apiKey || undefined, model: settings.model }),
             signal: controller.signal,
           });
           if (planRes.ok) {
             const plan = await planRes.json();
-            iterationCount = plan.count || 4;
-            concepts = plan.concepts || [];
+            // User count takes priority; planner provides concepts
+            concepts = (plan.concepts || []).slice(0, iterationCount);
           }
         } catch {
-          // Planning failed — continue with default 4
+          // Planning failed — continue with defaults
         }
 
         const positions = getGridPositions(iterationCount);

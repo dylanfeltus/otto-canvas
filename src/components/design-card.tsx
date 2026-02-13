@@ -58,6 +58,8 @@ export function DesignCard({
 <html><head><meta charset="utf-8"><style>
   html { height: auto; max-height: none; }
   body { margin: 0; padding: 0; background: white; width: ${iteration.width || FRAME_WIDTH}px; overflow: hidden; min-height: 100px; max-height: none; }
+  img, video, svg { max-width: 100%; height: auto; display: block; object-fit: cover; }
+  * { animation: none !important; transition: none !important; }
 </style></head><body>${iteration.html}
 <script>
 function reportHeight() {
