@@ -367,17 +367,31 @@ export default function Home() {
 
         setGroups((prev) => [...prev, newGroup]);
 
-        // Create all loading placeholders upfront
-        const iterIds: string[] = [];
-        for (let i = 0; i < iterationCount; i++) {
-          const iterId = `${groupId}-iter-${i}`;
-          iterIds.push(iterId);
+        // Track completed frame dimensions for sequential positioning
+        const completedFrames: { x: number; y: number; w: number; h: number }[] = [];
 
+        const getNextPosition = (index: number): Point => {
+          if (index === 0 || completedFrames.length === 0) return positions[0];
+          // Place to the right of previous frame with H_GAP
+          const prev = completedFrames[completedFrames.length - 1];
+          const nextX = prev.x + prev.w + H_GAP;
+          // Check if it fits in the row (2 per row)
+          if (index % COLS !== 0) {
+            return { x: nextX, y: prev.y };
+          }
+          // New row: below the tallest frame in the previous row
+          let maxBottom = 0;
+          for (const f of completedFrames) {
+            maxBottom = Math.max(maxBottom, f.y + f.h);
+          }
+          return { x: positions[0].x, y: maxBottom + V_GAP };
+        };
+
+        const addPlaceholder = (iterId: string, index: number, pos: Point) => {
           setPipelineStages((prev) => ({
             ...prev,
-            [iterId]: { stage: quickMode ? "layout" : (i === 0 ? "layout" : "queued"), progress: i === 0 ? 0.2 : 0 },
+            [iterId]: { stage: "layout", progress: 0.2 },
           }));
-
           setGroups((prev) =>
             prev.map((g) => {
               if (g.id !== groupId) return g;
@@ -388,8 +402,8 @@ export default function Home() {
                   {
                     id: iterId,
                     html: "",
-                    label: `Variation ${i + 1}`,
-                    position: positions[i],
+                    label: `Variation ${index + 1}`,
+                    position: pos,
                     width: 400,
                     height: 300,
                     prompt,
@@ -400,9 +414,13 @@ export default function Home() {
               };
             })
           );
-        }
+        };
 
-        const completeFrame = (iterId: string, result: { html: string; label: string; width?: number; height?: number }, index: number) => {
+        const completeFrame = (iterId: string, result: { html: string; label: string; width?: number; height?: number }, pos: Point) => {
+          const w = result.width || FRAME_WIDTH;
+          const h = result.height || 400;
+          completedFrames.push({ x: pos.x, y: pos.y, w, h });
+
           setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "done", progress: 1 } }));
           setGroups((prev) =>
             prev.map((g) => {
@@ -424,23 +442,28 @@ export default function Home() {
             })
           );
 
-          // Zoom to fit
+          // Zoom to fit all completed frames
           setTimeout(() => {
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            for (let j = 0; j <= index; j++) {
-              const w = (j === index ? result.width : undefined) || FRAME_WIDTH;
-              const h = (j === index ? result.height : undefined) || 400;
-              minX = Math.min(minX, positions[j].x);
-              minY = Math.min(minY, positions[j].y);
-              maxX = Math.max(maxX, positions[j].x + w);
-              maxY = Math.max(maxY, positions[j].y + h);
+            for (const f of completedFrames) {
+              minX = Math.min(minX, f.x);
+              minY = Math.min(minY, f.y);
+              maxX = Math.max(maxX, f.x + f.w);
+              maxY = Math.max(maxY, f.y + f.h);
             }
             canvas.zoomToFit({ minX, minY, maxX, maxY });
           }, 150);
         };
 
         if (quickMode) {
-          // Quick mode: run all frames in parallel, no critique
+          // Quick mode: create all placeholders upfront, run in parallel
+          const iterIds: string[] = [];
+          for (let i = 0; i < iterationCount; i++) {
+            const iterId = `${groupId}-iter-${i}`;
+            iterIds.push(iterId);
+            addPlaceholder(iterId, i, positions[i]);
+          }
+
           setGenStatus(`Running ${iterationCount} frames in parallel…`);
           const results = await Promise.allSettled(
             iterIds.map((iterId, i) =>
@@ -452,7 +475,7 @@ export default function Home() {
                 undefined,
                 controller.signal,
               ).then((result) => {
-                completeFrame(iterId, result, i);
+                completeFrame(iterId, result, positions[i]);
                 return result;
               })
             )
@@ -465,17 +488,18 @@ export default function Home() {
               completeFrame(iterIds[i], {
                 html: `<div style="padding:32px;color:#666;font-family:system-ui"><p style="font-size:14px">⚠ ${msg}</p></div>`,
                 label: `Variation ${i + 1}`,
-              }, i);
+              }, positions[i]);
             }
           });
 
         } else {
-          // Sequential critique loop: each frame improves on the last
+          // Sequential critique loop: one frame at a time
           let critique: string | undefined;
 
           for (let i = 0; i < iterationCount; i++) {
             if (controller.signal.aborted) break;
-            const iterId = iterIds[i];
+            const iterId = `${groupId}-iter-${i}`;
+            const pos = getNextPosition(i);
 
             setGenStatus(
               critique
@@ -483,7 +507,8 @@ export default function Home() {
                 : `Designing ${i + 1} of ${iterationCount}…`
             );
 
-            setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "layout", progress: 0.2 } }));
+            // Create this frame's placeholder NOW (not upfront)
+            addPlaceholder(iterId, i, pos);
 
             try {
               const result = await runPipelineForFrame(
@@ -495,15 +520,22 @@ export default function Home() {
                 controller.signal,
               );
 
-              completeFrame(iterId, result, i);
-              critique = result.critique;
+              // Update position to use actual dimensions for layout
+              setGroups((prev) =>
+                prev.map((g) => {
+                  if (g.id !== groupId) return g;
+                  return {
+                    ...g,
+                    iterations: g.iterations.map((iter) => {
+                      if (iter.id !== iterId) return iter;
+                      return { ...iter, position: pos };
+                    }),
+                  };
+                })
+              );
 
-              if (i + 1 < iterationCount) {
-                setPipelineStages((prev) => ({
-                  ...prev,
-                  [iterIds[i + 1]]: { stage: "refining", progress: 0.05 },
-                }));
-              }
+              completeFrame(iterId, result, pos);
+              critique = result.critique;
             } catch (err) {
               if (err instanceof Error && err.name === "AbortError") throw err;
               const msg = err instanceof Error ? err.message : "Failed";
@@ -511,7 +543,7 @@ export default function Home() {
               completeFrame(iterId, {
                 html: `<div style="padding:32px;color:#666;font-family:system-ui"><p style="font-size:14px">⚠ ${msg}</p></div>`,
                 label: `Variation ${i + 1}`,
-              }, i);
+              }, pos);
             }
           }
         }
