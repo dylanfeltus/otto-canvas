@@ -28,7 +28,7 @@ export function OnboardingModal({ onComplete, onDismiss }: OnboardingModalProps)
             <span className="text-3xl">🎨</span>
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-1">Welcome to Otto Canvas</h2>
-          <p className="text-[13px] text-gray-500 leading-relaxed">
+          <p className="text-[13px] text-gray-600 leading-relaxed">
             AI-powered design tool. Describe any design and Otto generates polished HTML/CSS variations.
           </p>
         </div>
@@ -38,7 +38,7 @@ export function OnboardingModal({ onComplete, onDismiss }: OnboardingModalProps)
           <label className="block text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-1.5">
             Anthropic API Key <span className="text-red-400">*</span>
           </label>
-          <p className="text-[11px] text-gray-400 mb-2">
+          <p className="text-[11px] text-gray-500 mb-2">
             Powers design generation with Claude.
           </p>
           <div className="relative">
@@ -53,7 +53,7 @@ export function OnboardingModal({ onComplete, onDismiss }: OnboardingModalProps)
             <button
               type="button"
               onClick={() => setShowAnthropicKey(!showAnthropicKey)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600 text-xs"
             >
               {showAnthropicKey ? "Hide" : "Show"}
             </button>
@@ -75,12 +75,12 @@ export function OnboardingModal({ onComplete, onDismiss }: OnboardingModalProps)
             className="flex items-center gap-2 text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-2"
           >
             <span className={`transition-transform ${showImageKeys ? "rotate-90" : ""}`}>▶</span>
-            Image Sources <span className="text-gray-300 font-normal normal-case">(optional — enables real images in designs)</span>
+            Image Sources <span className="text-gray-500 font-normal normal-case">(optional — enables real images in designs)</span>
           </button>
 
           {showImageKeys && (
             <div className="space-y-3 mt-2">
-              <p className="text-[11px] text-gray-400 leading-relaxed">
+              <p className="text-[11px] text-gray-500 leading-relaxed">
                 Add any of these keys to enable real images. Claude picks the best source for each image automatically.
               </p>
 
@@ -136,7 +136,7 @@ export function OnboardingModal({ onComplete, onDismiss }: OnboardingModalProps)
         <div className="flex items-center justify-between">
           <button
             onClick={onDismiss}
-            className="text-[12px] text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-[12px] text-gray-500 hover:text-gray-600 transition-colors"
           >
             Skip for now
           </button>
@@ -154,7 +154,7 @@ export function OnboardingModal({ onComplete, onDismiss }: OnboardingModalProps)
         </div>
 
         {/* Privacy note */}
-        <p className="mt-4 text-[10px] text-gray-400 text-center leading-relaxed">
+        <p className="mt-4 text-[10px] text-gray-500 text-center leading-relaxed">
           Keys are stored locally in your browser. They are never sent to our servers — API calls go directly to Anthropic and Google.
         </p>
       </div>
