@@ -5,6 +5,8 @@ import { useState, useCallback, useEffect } from "react";
 export interface Settings {
   apiKey: string;
   geminiKey: string;
+  unsplashKey: string;
+  openaiKey: string;
   model: string;
   systemPrompt: string;
   systemPromptPreset: string;
@@ -27,6 +29,8 @@ export function useSettings() {
   const [settings, setSettingsState] = useState<Settings>({
     apiKey: "",
     geminiKey: "",
+    unsplashKey: "",
+    openaiKey: "",
     model: DEFAULT_MODEL,
     systemPrompt: "",
     systemPromptPreset: "custom",
@@ -44,6 +48,8 @@ export function useSettings() {
         setSettingsState({
           apiKey: parsed.apiKey || "",
           geminiKey: parsed.geminiKey || "",
+          unsplashKey: parsed.unsplashKey || "",
+          openaiKey: parsed.openaiKey || "",
           model: parsed.model || DEFAULT_MODEL,
           systemPrompt: parsed.systemPrompt || "",
           systemPromptPreset: parsed.systemPromptPreset || "custom",

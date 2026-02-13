@@ -241,9 +241,11 @@ export default function Home() {
           model: settings.model,
           apiKey: settings.apiKey || undefined,
           geminiKey: settings.geminiKey || undefined,
+          unsplashKey: settings.unsplashKey || undefined,
+          openaiKey: settings.openaiKey || undefined,
           systemPrompt: settings.systemPrompt || undefined,
           critique,
-          enableImages: !!settings.geminiKey,
+          enableImages: !!(settings.geminiKey || settings.unsplashKey || settings.openaiKey),
           enableQA: !revisionOpts, // Skip QA for revisions — they're targeted edits
           ...(revisionOpts || {}),
         }),
@@ -321,7 +323,7 @@ export default function Home() {
       if (!result) throw new Error("No result from pipeline");
       return { ...result, critique: critiqueText };
     },
-    [settings.apiKey, settings.model, settings.systemPrompt, settings.geminiKey]
+    [settings.apiKey, settings.model, settings.systemPrompt, settings.geminiKey, settings.unsplashKey, settings.openaiKey]
   );
 
   const handleGenerate = useCallback(
@@ -1063,8 +1065,13 @@ export default function Home() {
       {/* Onboarding: Welcome modal */}
       {onboarding.showWelcome && (
         <OnboardingModal
-          onComplete={(anthropicKey, geminiKey) => {
-            setSettings({ apiKey: anthropicKey, geminiKey });
+          onComplete={(keys) => {
+            setSettings({
+              apiKey: keys.anthropicKey,
+              geminiKey: keys.geminiKey,
+              unsplashKey: keys.unsplashKey,
+              openaiKey: keys.openaiKey,
+            });
             onboarding.completeKeys();
           }}
           onDismiss={() => onboarding.dismiss()}

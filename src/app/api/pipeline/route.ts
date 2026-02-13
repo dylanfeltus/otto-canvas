@@ -28,20 +28,26 @@ interface PipelineRequest {
   model?: string;
   apiKey?: string;
   geminiKey?: string;
+  unsplashKey?: string;
+  openaiKey?: string;
   systemPrompt?: string;
   critique?: string;
   enableImages?: boolean;
   enableQA?: boolean;
-  // Revision mode — edit existing HTML instead of generating from scratch
+  availableSources?: string[]; // e.g. ["unsplash", "dalle", "gemini"]
   revision?: string;
   existingHtml?: string;
 }
+
+type ImageSource = "unsplash" | "dalle" | "gemini";
 
 interface Placeholder {
   id: string;
   description: string;
   width: number;
   height: number;
+  source: ImageSource;
+  query?: string; // Unsplash search query
 }
 
 // --- Streaming response helpers ---
@@ -76,6 +82,7 @@ async function generateLayout(
   style: string,
   systemPrompt?: string,
   critique?: string,
+  availableSources?: string[],
 ): Promise<{ html: string; width?: number; height?: number }> {
   const critiqueBlock = critique
     ? `\n\nIMPROVEMENT FEEDBACK from previous variation (apply these learnings):\n${critique}\n`
@@ -100,16 +107,26 @@ Every design MUST contain at least 1-3 image placeholder divs. This is NON-NEGOT
 Do NOT use colored boxes, CSS gradients, or background-image as substitutes for real imagery.
 Do NOT use <img> tags with URLs. Use ONLY placeholder divs in this EXACT format:
 
-<div data-placeholder="DESCRIPTION" data-ph-w="WIDTH" data-ph-h="HEIGHT" style="width:WIDTHpx;height:HEIGHTpx;background:#e5e7eb;display:flex;align-items:center;justify-content:center;border-radius:8px;overflow:hidden;">
+<div data-placeholder="DESCRIPTION" data-ph-w="WIDTH" data-ph-h="HEIGHT" data-img-source="SOURCE" data-img-query="SEARCH_TERMS" style="width:WIDTHpx;height:HEIGHTpx;background:#e5e7eb;display:flex;align-items:center;justify-content:center;border-radius:8px;overflow:hidden;">
   <span style="color:#9ca3af;font-size:12px;text-align:center;padding:8px;">DESCRIPTION</span>
 </div>
 
-Rules for placeholders:
-- DESCRIPTION = detailed image generation prompt (e.g., "Modern minimalist office workspace with plants, soft natural lighting")
-- WIDTH/HEIGHT = real pixel dimensions that fit the layout (e.g., data-ph-w="400" data-ph-h="300")
+REQUIRED ATTRIBUTES on every placeholder:
+- data-placeholder = detailed image description/prompt
+- data-ph-w / data-ph-h = pixel dimensions that fit the layout
+- data-img-source = which image API to use: "unsplash", "dalle", or "gemini"
+- data-img-query = search terms (especially important for Unsplash)
+
+${availableSources && availableSources.length > 0
+  ? `AVAILABLE IMAGE SOURCES (choose the best one for each placeholder):
+${availableSources.includes("unsplash") ? '- "unsplash" — BEST for real photographs: landscapes, people, food, architecture, objects, nature, office spaces. Use when the design needs photographic imagery.\n' : ""}${availableSources.includes("dalle") ? '- "dalle" — BEST for custom illustrations, abstract art, specific scenes that don\'t exist as stock photos, conceptual imagery, stylized graphics.\n' : ""}${availableSources.includes("gemini") ? '- "gemini" — BEST for design assets, UI elements, icons, patterns, textures, decorative graphics.\n' : ""}
+Choose the source that best matches what each placeholder needs. If the user specifies a source in their prompt (e.g., "photo from Unsplash"), use that source.`
+  : 'Set data-img-source="gemini" for all placeholders (only source available).'}
+
+Rules:
 - Include 1-6 placeholders per design — hero images, product photos, team photos, backgrounds, etc.
 - Use CSS gradients ONLY for decorative/abstract accents, NOT as replacements for photographs
-- The data-placeholder, data-ph-w, and data-ph-h attributes are REQUIRED — they trigger the image generation pipeline
+- All data attributes are REQUIRED — they trigger the image generation pipeline
 
 SIZE — output a size comment on the FIRST line:
 <!--size:WIDTHxHEIGHT-->
@@ -194,77 +211,161 @@ OUTPUT: HTML only — no explanation, no markdown, no code fences. ALL CSS in a 
 }
 
 /** Parse placeholder elements from HTML */
-function parsePlaceholders(html: string): Placeholder[] {
+function parsePlaceholders(html: string, availableSources: string[]): Placeholder[] {
   const placeholders: Placeholder[] = [];
-  const regex = /data-placeholder="([^"]+)"\s+data-ph-w="(\d+)"\s+data-ph-h="(\d+)"/g;
+  // Match placeholder divs — source and query are optional in the regex
+  const regex = /data-placeholder="([^"]+)"\s+data-ph-w="(\d+)"\s+data-ph-h="(\d+)"(?:\s+data-img-source="([^"]*)")?(?:\s+data-img-query="([^"]*)")?/g;
   let match;
   let idx = 0;
+  const defaultSource: ImageSource = availableSources.includes("unsplash") ? "unsplash" : availableSources.includes("dalle") ? "dalle" : "gemini";
   while ((match = regex.exec(html)) !== null) {
+    let source = (match[4] || defaultSource) as ImageSource;
+    // Fallback if specified source isn't available
+    if (!availableSources.includes(source)) {
+      source = defaultSource;
+    }
     placeholders.push({
       id: `ph-${idx++}`,
       description: match[1],
       width: parseInt(match[2], 10),
       height: parseInt(match[3], 10),
+      source,
+      query: match[5] || undefined,
     });
   }
   return placeholders;
 }
 
-/** Stage 2: Generate images for placeholders via Gemini */
+/** Generate a single image via Unsplash search API */
+async function generateUnsplashImage(ph: Placeholder, unsplashKey: string): Promise<string | null> {
+  const query = ph.query || ph.description;
+  const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=${ph.width > ph.height * 1.3 ? "landscape" : ph.height > ph.width * 1.3 ? "portrait" : "squarish"}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Client-ID ${unsplashKey}` },
+  });
+  if (!res.ok) {
+    console.error(`[pipeline] Unsplash API error: ${res.status} ${res.statusText}`);
+    return null;
+  }
+  const data = await res.json();
+  const photo = data.results?.[0];
+  if (!photo) {
+    console.warn(`[pipeline] Unsplash: no results for "${query}"`);
+    return null;
+  }
+  // Use the raw URL with size params for exact dimensions
+  return `${photo.urls.raw}&w=${ph.width}&h=${ph.height}&fit=crop&auto=format`;
+}
+
+/** Generate a single image via OpenAI DALL-E */
+async function generateDalleImage(ph: Placeholder, openaiKey: string): Promise<string | null> {
+  // DALL-E 3 supports 1024x1024, 1024x1792, 1792x1024
+  const size = ph.width > ph.height * 1.3 ? "1792x1024" : ph.height > ph.width * 1.3 ? "1024x1792" : "1024x1024";
+  const res = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${openaiKey}`,
+    },
+    body: JSON.stringify({
+      model: "dall-e-3",
+      prompt: `${ph.description}. Clean, professional design asset suitable for web/marketing. No text unless specifically requested.`,
+      n: 1,
+      size,
+      response_format: "b64_json",
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text().catch(() => "");
+    console.error(`[pipeline] DALL-E API error: ${res.status}`, err.slice(0, 200));
+    return null;
+  }
+  const data = await res.json();
+  const b64 = data.data?.[0]?.b64_json;
+  if (!b64) return null;
+  return `data:image/png;base64,${b64}`;
+}
+
+/** Generate a single image via Gemini */
+async function generateGeminiImage(ph: Placeholder, geminiKey: string): Promise<string | null> {
+  const gemini = getGeminiClient(geminiKey);
+  if (!gemini) return null;
+  const response = await gemini.models.generateContent({
+    model: "gemini-2.0-flash-preview-image-generation",
+    contents: `Generate a high quality design asset image: ${ph.description}. Clean, professional, suitable for web/marketing design. No text unless specifically requested. Output only the image.`,
+    config: { responseModalities: ["image", "text"] },
+  });
+  const parts = response.candidates?.[0]?.content?.parts;
+  if (parts) {
+    for (const part of parts) {
+      if (part.inlineData?.mimeType?.startsWith("image/")) {
+        const b64 = part.inlineData.data;
+        const mime = part.inlineData.mimeType;
+        if (b64) return `data:${mime};base64,${b64}`;
+      }
+    }
+  }
+  return null;
+}
+
+/** Stage 2: Generate images for placeholders — routes to appropriate API per placeholder */
 async function generateImages(
   placeholders: Placeholder[],
-  geminiKey?: string,
+  keys: { geminiKey?: string; unsplashKey?: string; openaiKey?: string },
 ): Promise<Map<number, string>> {
-  const gemini = getGeminiClient(geminiKey);
-  if (!gemini) {
-    console.warn("[pipeline] No Gemini key available — skipping image generation");
-    return new Map();
-  }
-  console.log(`[pipeline] Gemini client created, generating ${placeholders.length} images`);
   const imageMap = new Map<number, string>();
+  if (placeholders.length === 0) return imageMap;
 
-  // Generate in parallel, max 3 concurrent (Gemini rate limits)
+  // Build fallback chain based on available keys
+  const fallbackChain: ImageSource[] = [];
+  if (keys.unsplashKey) fallbackChain.push("unsplash");
+  if (keys.openaiKey) fallbackChain.push("dalle");
+  if (keys.geminiKey) fallbackChain.push("gemini");
+
+  if (fallbackChain.length === 0) {
+    console.warn("[pipeline] No image API keys available — skipping image generation");
+    return imageMap;
+  }
+
+  console.log(`[pipeline] Generating ${placeholders.length} images, available sources: ${fallbackChain.join(", ")}`);
+
+  // Process in batches of 3 to respect rate limits
   const batchSize = 3;
   for (let i = 0; i < placeholders.length; i += batchSize) {
     const batch = placeholders.slice(i, i + batchSize);
-    const results = await Promise.allSettled(
+    await Promise.allSettled(
       batch.map(async (ph, batchIdx) => {
         const globalIdx = i + batchIdx;
-        try {
-          const response = await gemini.models.generateContent({
-            model: "gemini-2.0-flash-preview-image-generation",
-            contents: `Generate a high quality design asset image: ${ph.description}. Clean, professional, suitable for web/marketing design. No text unless specifically requested. Output only the image.`,
-            config: {
-              responseModalities: ["image", "text"],
-            },
-          });
-          console.log(`Gemini response for ph ${globalIdx}:`, JSON.stringify(response.candidates?.[0]?.content?.parts?.map(p => ({ hasImage: !!p.inlineData, text: p.text?.slice(0, 50) }))));
+        // Build source order: preferred source first, then fallbacks
+        const sources = [ph.source, ...fallbackChain.filter(s => s !== ph.source)];
 
-          // Extract image from response parts
-          const parts = response.candidates?.[0]?.content?.parts;
-          if (parts) {
-            for (const part of parts) {
-              if (part.inlineData?.mimeType?.startsWith("image/")) {
-                const b64 = part.inlineData.data;
-                const mime = part.inlineData.mimeType;
-                if (b64) {
-                  imageMap.set(globalIdx, `data:${mime};base64,${b64}`);
-                  break;
-                }
-              }
+        for (const source of sources) {
+          try {
+            let result: string | null = null;
+            switch (source) {
+              case "unsplash":
+                if (keys.unsplashKey) result = await generateUnsplashImage(ph, keys.unsplashKey);
+                break;
+              case "dalle":
+                if (keys.openaiKey) result = await generateDalleImage(ph, keys.openaiKey);
+                break;
+              case "gemini":
+                if (keys.geminiKey) result = await generateGeminiImage(ph, keys.geminiKey);
+                break;
             }
+            if (result) {
+              console.log(`[pipeline] Image ${globalIdx}: ${source} ✓`);
+              imageMap.set(globalIdx, result);
+              return;
+            }
+            console.warn(`[pipeline] Image ${globalIdx}: ${source} returned null, trying next`);
+          } catch (err) {
+            console.error(`[pipeline] Image ${globalIdx}: ${source} failed:`, err instanceof Error ? err.message : err);
           }
-        } catch (err) {
-          console.error(`[pipeline] Gemini image generation FAILED for placeholder ${globalIdx}:`, err instanceof Error ? err.message : err);
         }
-        return globalIdx;
+        console.warn(`[pipeline] Image ${globalIdx}: all sources exhausted, keeping placeholder`);
       })
     );
-    results.forEach((r, idx) => {
-      if (r.status === "rejected") {
-        console.warn(`Image batch item ${idx} failed:`, r.reason);
-      }
-    });
   }
 
   return imageMap;
@@ -388,10 +489,19 @@ export async function POST(req: NextRequest) {
     enableQA = true,
     revision,
     existingHtml,
+    unsplashKey,
+    openaiKey,
   } = body;
 
   const useModel = model || DEFAULT_MODEL;
   const isRevision = !!(revision && existingHtml);
+
+  // Determine available image sources
+  const availableSources: string[] = [];
+  if (unsplashKey) availableSources.push("unsplash");
+  if (openaiKey) availableSources.push("dalle");
+  if (geminiKey) availableSources.push("gemini");
+  const hasAnyImageKey = availableSources.length > 0;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -416,6 +526,7 @@ export async function POST(req: NextRequest) {
               style,
               systemPrompt,
               critique,
+              availableSources,
             );
         let html = layout.html;
         const width = layout.width;
@@ -425,20 +536,20 @@ export async function POST(req: NextRequest) {
         send(encodePreview(html, width, height));
 
         // Parse placeholders
-        const placeholders = parsePlaceholders(html);
-        console.log(`[pipeline] enableImages=${enableImages}, geminiKey=${geminiKey ? "SET" : "MISSING"}, placeholders=${placeholders.length}`);
+        const placeholders = parsePlaceholders(html, availableSources);
+        console.log(`[pipeline] enableImages=${enableImages}, hasAnyImageKey=${hasAnyImageKey}, sources=[${availableSources}], placeholders=${placeholders.length}`);
         if (placeholders.length > 0) {
-          console.log(`[pipeline] Placeholders:`, placeholders.map(p => p.description));
+          console.log(`[pipeline] Placeholders:`, placeholders.map(p => `${p.source}:"${p.description}"`));
         }
 
         // Stage 2: Image generation (if enabled and placeholders exist)
-        if (enableImages && placeholders.length > 0) {
+        if (enableImages && hasAnyImageKey && placeholders.length > 0) {
           send(encodeStage("images", 0.45));
           try {
-            console.log(`[pipeline] Starting Gemini image generation for ${placeholders.length} placeholders`);
-            const imageMap = await generateImages(placeholders, geminiKey);
+            console.log(`[pipeline] Starting image generation for ${placeholders.length} placeholders`);
+            const imageMap = await generateImages(placeholders, { geminiKey, unsplashKey, openaiKey });
 
-            console.log(`[pipeline] Gemini returned ${imageMap.size} images out of ${placeholders.length} placeholders`);
+            console.log(`[pipeline] Generated ${imageMap.size} images out of ${placeholders.length} placeholders`);
             // Stage 3: Compositing
             if (imageMap.size > 0) {
               send(encodeStage("compositing", 0.65));
@@ -448,13 +559,12 @@ export async function POST(req: NextRequest) {
             }
           } catch (imgErr) {
             console.warn("Image pipeline failed, continuing with placeholders:", imgErr);
-            // Continue with CSS placeholders — don't fail the whole pipeline
           }
         }
 
-        if (!enableImages) {
-          console.log(`[pipeline] Image generation DISABLED (no Gemini key on client)`);
-          send(encodeStage("images", 0.45, { skipped: true, reason: "No Gemini API key — add one in Settings to enable image generation" }));
+        if (!enableImages || !hasAnyImageKey) {
+          console.log(`[pipeline] Image generation DISABLED (no image API keys on client)`);
+          send(encodeStage("images", 0.45, { skipped: true, reason: "No image API keys — add Unsplash, DALL·E, or Gemini key in Settings" }));
         } else if (placeholders.length === 0) {
           console.log(`[pipeline] No placeholders found in layout HTML — skipping image generation`);
           console.log(`[pipeline] First 500 chars of layout HTML:`, html.slice(0, 500));
