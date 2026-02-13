@@ -291,7 +291,7 @@ async function generateGeminiImage(ph: Placeholder, geminiKey: string): Promise<
   const gemini = getGeminiClient(geminiKey);
   if (!gemini) return null;
   const response = await gemini.models.generateContent({
-    model: "gemini-2.0-flash-preview-image-generation",
+    model: "gemini-2.0-flash-exp",
     contents: `Generate a high quality design asset image: ${ph.description}. Clean, professional, suitable for web/marketing design. No text unless specifically requested. Output only the image.`,
     config: { responseModalities: ["image", "text"] },
   });
