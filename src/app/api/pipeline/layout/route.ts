@@ -149,6 +149,12 @@ DESIGN QUALITY RULES:
 - Visual texture: layered shadows, glassmorphism, patterns
 - System font stack: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif
 
+SCOPE — KEEP IT FOCUSED:
+- Generate ONLY the hero section and ONE additional section below it (max 2 sections total)
+- Do NOT build a full page with footer, multiple sections, testimonials, etc.
+- Think of this as a "above the fold" concept — the most impactful part of the design
+- This keeps generation fast and focused on the core visual identity
+
 ABSOLUTELY NO MOTION:
 - No CSS animations, transitions, @keyframes, hover effects
 
