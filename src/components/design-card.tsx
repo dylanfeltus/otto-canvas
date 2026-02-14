@@ -96,7 +96,7 @@ setTimeout(reportHeight, 1500);
 
     const onMessage = (e: MessageEvent) => {
       if (e.data?.type === 'otto-frame-height' && e.data.id === iteration.id) {
-        const h = Math.min(Math.max(e.data.height, 50), 2000);
+        const h = Math.min(Math.max(e.data.height, 50), 12000);
         setContentHeight(h);
         measuredRef.current = true;
       }
