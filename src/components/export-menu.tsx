@@ -29,7 +29,7 @@ const ALL_FORMATS = [...CODE_FORMATS, ...IMAGE_FORMATS];
 async function htmlToImageBlob(html: string, width: number, type: "image/png" | "image/jpeg"): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const iframe = document.createElement("iframe");
-    iframe.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;height:2000px;border:none;`;
+    iframe.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;height:12000px;border:none;`;
     document.body.appendChild(iframe);
 
     const doc = iframe.contentDocument;
@@ -94,10 +94,20 @@ export function ExportMenu({ html, label, width = 480, apiKey, model }: ExportMe
           const blob = await htmlToImageBlob(html, width, mimeType as "image/png" | "image/jpeg");
 
           if (format === "copy-image") {
-            await navigator.clipboard.write([
-              new ClipboardItem({ [blob.type]: blob }),
-            ]);
-            // Brief success indicator
+            try {
+              await navigator.clipboard.write([
+                new ClipboardItem({ "image/png": blob }),
+              ]);
+            } catch (clipErr) {
+              console.error("Clipboard write failed, falling back to download:", clipErr);
+              // Fallback: download instead
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `${label.toLowerCase().replace(/\s+/g, "-")}.png`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }
             setExporting(null);
             return;
           }
