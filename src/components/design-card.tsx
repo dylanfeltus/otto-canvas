@@ -198,9 +198,7 @@ setTimeout(reportHeight, 1500);
               </svg>
             </div>
             <span className="text-[12px] font-medium text-gray-400">
-              {pipelineStatus && pipelineStatus.stage !== "done" && pipelineStatus.stage !== "error"
-                ? STAGE_CONFIG[pipelineStatus.stage].label
-                : "Generating..."}
+              Generating...
             </span>
           </div>
         ) : (
