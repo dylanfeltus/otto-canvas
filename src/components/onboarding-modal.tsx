@@ -24,9 +24,7 @@ export function OnboardingModal({ onComplete, onDismiss }: OnboardingModalProps)
       <div className="relative bg-white/70 backdrop-blur-2xl rounded-3xl border border-white/60 shadow-[0_24px_80px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.7)] p-8 w-[440px] max-w-[92vw] max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="text-center mb-6">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center shadow-lg shadow-violet-500/20">
-            <span className="text-3xl">🎨</span>
-          </div>
+          <img src="/otto-icon.jpg" alt="Otto" className="w-16 h-16 mx-auto mb-4 rounded-2xl shadow-lg shadow-violet-500/20 object-cover" />
           <h2 className="text-xl font-bold text-gray-900 mb-1">Welcome to Otto Canvas</h2>
           <p className="text-[13px] text-gray-600 leading-relaxed">
             AI-powered design tool. Describe any design and Otto generates polished HTML/CSS variations.
