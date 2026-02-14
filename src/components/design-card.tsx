@@ -16,7 +16,7 @@ interface DesignCardProps {
   isSelectMode: boolean;
   isDragging: boolean;
   isSelected?: boolean;
-  onSelect?: () => void;
+  onSelect?: (e?: React.MouseEvent) => void;
   onAddComment: (iterationId: string, position: Point) => void;
   onClickComment: (comment: CommentType) => void;
   onDragStart: (e: React.MouseEvent) => void;
@@ -147,7 +147,7 @@ setTimeout(reportHeight, 1500);
       {/* Frame — fixed width, NO transitions on any dimension */}
       <div
         ref={wrapperRef}
-        onClick={(e) => { handleClick(e); if (isSelectMode && onSelect) { e.stopPropagation(); onSelect(); } }}
+        onClick={(e) => { handleClick(e); if (isSelectMode && onSelect) { e.stopPropagation(); onSelect(e); } }}
         onMouseDown={(e) => { if (isSelectMode) { e.stopPropagation(); onDragStart(e); } }}
         className={`relative bg-white rounded-xl shadow-md border overflow-hidden transition-shadow ${
           isSelected

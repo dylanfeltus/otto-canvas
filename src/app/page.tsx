@@ -59,7 +59,9 @@ export default function Home() {
   } | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [activeComment, setActiveComment] = useState<CommentType | null>(null);
-  const [selectedIterationId, setSelectedIterationId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Rubber band selection state
+  const [rubberBand, setRubberBand] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
 
   const commentCountRef = useRef(0);
 
@@ -81,16 +83,16 @@ export default function Home() {
       if (e.key === "Escape") {
         setCommentDraft(null);
         setActiveComment(null);
-        setSelectedIterationId(null);
+        setSelectedIds(new Set());
       }
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedIterationId) {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.size > 0) {
         setGroups((prev) =>
           prev.map((g) => ({
             ...g,
-            iterations: g.iterations.filter((iter) => iter.id !== selectedIterationId),
+            iterations: g.iterations.filter((iter) => !selectedIds.has(iter.id)),
           })).filter((g) => g.iterations.length > 0)
         );
-        setSelectedIterationId(null);
+        setSelectedIds(new Set());
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
@@ -102,7 +104,7 @@ export default function Home() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [selectedIterationId]);
+  }, [selectedIds]);
 
   // Grid positioning — 2 columns, centered in viewport
   const H_GAP = 60;
@@ -848,13 +850,26 @@ export default function Home() {
             startMouse: { x: e.clientX, y: e.clientY },
             startPos: { ...iter.position },
           };
+          // Capture start positions for all selected frames (multi-drag)
+          dragStartPositions.current.clear();
+          const movingIds = selectedIds.has(iterationId) ? selectedIds : new Set([iterationId]);
+          for (const g of groups) {
+            for (const it of g.iterations) {
+              if (movingIds.has(it.id)) {
+                dragStartPositions.current.set(it.id, { ...it.position });
+              }
+            }
+          }
           setDraggingId(iterationId);
           break;
         }
       }
     },
-    [toolMode, spaceHeld, groups]
+    [toolMode, spaceHeld, groups, selectedIds]
   );
+
+  // Store start positions for all selected frames during multi-drag
+  const dragStartPositions = useRef<Map<string, Point>>(new Map());
 
   const handleFrameDragMove = useCallback(
     (e: React.MouseEvent) => {
@@ -862,24 +877,21 @@ export default function Home() {
       const dx = (e.clientX - dragRef.current.startMouse.x) / canvas.scale;
       const dy = (e.clientY - dragRef.current.startMouse.y) / canvas.scale;
 
-      const newPos = {
-        x: dragRef.current.startPos.x + dx,
-        y: dragRef.current.startPos.y + dy,
-      };
-
       const dragId = dragRef.current.iterationId;
+      const movingIds = selectedIds.has(dragId) ? selectedIds : new Set([dragId]);
+
       setGroups((prev) =>
         prev.map((g) => ({
           ...g,
-          iterations: g.iterations.map((iter) =>
-            iter.id === dragId
-              ? { ...iter, position: newPos }
-              : iter
-          ),
+          iterations: g.iterations.map((iter) => {
+            if (!movingIds.has(iter.id)) return iter;
+            const startPos = dragStartPositions.current.get(iter.id) || iter.position;
+            return { ...iter, position: { x: startPos.x + dx, y: startPos.y + dy } };
+          }),
         }))
       );
     },
-    [canvas.scale]
+    [canvas.scale, selectedIds]
   );
 
   const handleFrameDragEnd = useCallback(() => {
@@ -887,7 +899,8 @@ export default function Home() {
     setDraggingId(null);
   }, []);
 
-  const canPan = (spaceHeld || toolMode === "select") && !draggingId;
+  const canPan = spaceHeld && !draggingId;
+  const isSelectMode = toolMode === "select" && !spaceHeld;
 
   const allIterations = groups.flatMap((g) => g.iterations.map((iter) => ({ ...iter, groupId: g.id })));
 
@@ -898,19 +911,68 @@ export default function Home() {
         ref={combinedCanvasRef}
         className={`absolute inset-0 canvas-dots ${
           canPan ? "cursor-grab active:cursor-grabbing" : ""
-        } ${toolMode === "comment" && !spaceHeld ? "cursor-crosshair" : ""}`}
+        } ${toolMode === "comment" && !spaceHeld ? "cursor-crosshair" : "cursor-default"}`}
         onMouseDown={(e) => {
-          setSelectedIterationId(null);
-          if (canPan) canvas.onMouseDown(e);
+          if (canPan) {
+            canvas.onMouseDown(e);
+            return;
+          }
+          if (isSelectMode && !draggingId) {
+            // Start rubber band selection on empty canvas
+            if (!e.shiftKey) setSelectedIds(new Set());
+            setRubberBand({ startX: e.clientX, startY: e.clientY, currentX: e.clientX, currentY: e.clientY });
+          }
         }}
         onMouseMove={(e) => {
-          if (draggingId) { handleFrameDragMove(e); } else { canvas.onMouseMove(e); }
+          if (draggingId) {
+            handleFrameDragMove(e);
+          } else if (rubberBand) {
+            setRubberBand((prev) => prev ? { ...prev, currentX: e.clientX, currentY: e.clientY } : null);
+          } else {
+            canvas.onMouseMove(e);
+          }
         }}
         onMouseUp={() => {
-          if (draggingId) { handleFrameDragEnd(); } else { canvas.onMouseUp(); }
+          if (draggingId) {
+            handleFrameDragEnd();
+          } else if (rubberBand) {
+            // Calculate rubber band rect in canvas coordinates
+            const rb = rubberBand;
+            const minScreenX = Math.min(rb.startX, rb.currentX);
+            const maxScreenX = Math.max(rb.startX, rb.currentX);
+            const minScreenY = Math.min(rb.startY, rb.currentY);
+            const maxScreenY = Math.max(rb.startY, rb.currentY);
+
+            // Only select if dragged at least 5px (not just a click)
+            if (maxScreenX - minScreenX > 5 || maxScreenY - minScreenY > 5) {
+              // Convert screen rect to canvas coordinates
+              const toCanvasX = (sx: number) => (sx - canvas.offset.x) / canvas.scale;
+              const toCanvasY = (sy: number) => (sy - canvas.offset.y) / canvas.scale;
+              const canvasMinX = toCanvasX(minScreenX);
+              const canvasMaxX = toCanvasX(maxScreenX);
+              const canvasMinY = toCanvasY(minScreenY);
+              const canvasMaxY = toCanvasY(maxScreenY);
+
+              const newSelected = new Set(selectedIds);
+              for (const iter of allIterations) {
+                const ix = iter.position.x;
+                const iy = iter.position.y;
+                const iw = iter.width || FRAME_WIDTH;
+                const ih = iter.height || 300;
+                // Check overlap
+                if (ix + iw > canvasMinX && ix < canvasMaxX && iy + ih > canvasMinY && iy < canvasMaxY) {
+                  newSelected.add(iter.id);
+                }
+              }
+              setSelectedIds(newSelected);
+            }
+            setRubberBand(null);
+          } else {
+            canvas.onMouseUp();
+          }
         }}
         onMouseLeave={() => {
-          if (draggingId) { handleFrameDragEnd(); } else { canvas.onMouseUp(); }
+          if (draggingId) { handleFrameDragEnd(); } else { setRubberBand(null); canvas.onMouseUp(); }
         }}
       >
         {/* Transform layer — only this moves/scales */}
@@ -928,8 +990,19 @@ export default function Home() {
               isCommentMode={toolMode === "comment" && !spaceHeld}
               isSelectMode={toolMode === "select" && !spaceHeld}
               isDragging={draggingId === iteration.id}
-              isSelected={selectedIterationId === iteration.id}
-              onSelect={() => setSelectedIterationId(iteration.id)}
+              isSelected={selectedIds.has(iteration.id)}
+              onSelect={(e?: React.MouseEvent) => {
+                if (e?.shiftKey) {
+                  setSelectedIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(iteration.id)) next.delete(iteration.id);
+                    else next.add(iteration.id);
+                    return next;
+                  });
+                } else {
+                  setSelectedIds(new Set([iteration.id]));
+                }
+              }}
               onAddComment={handleAddComment}
               onClickComment={handleClickComment}
               onDragStart={(e) => handleFrameDragStart(iteration.id, e)}
@@ -972,6 +1045,19 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Rubber band selection overlay */}
+      {rubberBand && (
+        <div
+          className="fixed pointer-events-none z-[60] border border-blue-400/50 bg-blue-400/10 rounded-sm"
+          style={{
+            left: Math.min(rubberBand.startX, rubberBand.currentX),
+            top: Math.min(rubberBand.startY, rubberBand.currentY),
+            width: Math.abs(rubberBand.currentX - rubberBand.startX),
+            height: Math.abs(rubberBand.currentY - rubberBand.startY),
+          }}
+        />
+      )}
 
       {/* Fixed UI — OUTSIDE canvas transform, never moves/scales */}
       <Toolbar
