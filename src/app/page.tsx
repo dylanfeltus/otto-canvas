@@ -220,7 +220,47 @@ export default function Home() {
     "Dark and dramatic — dark backgrounds, glowing accents, cinematic feel, high contrast, moody atmosphere",
   ];
 
-  /** Process a single frame through the SSE pipeline */
+  /** Helper: post JSON and return parsed response, throwing on error */
+  const pipelinePost = useCallback(
+    async (url: string, body: Record<string, unknown>, signal: AbortSignal) => {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Request to ${url} failed`);
+      return data;
+    },
+    []
+  );
+
+  /** Post-process: cap oversized sections */
+  const capOversizedSections = useCallback((html: string): string => {
+    let result = html;
+    result = result.replace(
+      /(<(?:section|div)\s[^>]*style="[^"]*?)height\s*:\s*(\d+)px/gi,
+      (_match: string, prefix: string, heightStr: string) => {
+        const h = parseInt(heightStr, 10);
+        return h > 800 ? `${prefix}height:${h}px;max-height:800px;overflow:hidden` : _match;
+      }
+    );
+    result = result.replace(
+      /(<(?:section|div)\s[^>]*style="[^"]*?)min-height\s*:\s*(\d+)px/gi,
+      (_match: string, prefix: string, heightStr: string) => {
+        const h = parseInt(heightStr, 10);
+        return h > 800 ? `${prefix}min-height:${h}px;max-height:800px;overflow:hidden` : _match;
+      }
+    );
+    result = result.replace(
+      /(<(?:section|div)\s[^>]*style="[^"]*?)(?:min-)?height\s*:\s*100vh/gi,
+      (_match: string, prefix: string) => `${prefix}height:auto;max-height:800px;overflow:hidden`
+    );
+    return result;
+  }, []);
+
+  /** Process a single frame through chained API calls (layout → images → review → critique) */
   const runPipelineForFrame = useCallback(
     async (
       iterId: string,
@@ -231,100 +271,113 @@ export default function Home() {
       signal: AbortSignal,
       revisionOpts?: { revision: string; existingHtml: string },
     ): Promise<{ html: string; label: string; width?: number; height?: number; critique?: string }> => {
+      const isRevision = !!revisionOpts;
+      const enableImages = !!(settings.geminiKey || settings.unsplashKey || settings.openaiKey);
+      const enableQA = !isRevision;
 
-      const res = await fetch("/api/pipeline", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt,
-          style,
-          index,
-          model: settings.model,
-          apiKey: settings.apiKey || undefined,
-          geminiKey: settings.geminiKey || undefined,
-          unsplashKey: settings.unsplashKey || undefined,
-          openaiKey: settings.openaiKey || undefined,
-          systemPrompt: settings.systemPrompt || undefined,
-          critique,
-          enableImages: !!(settings.geminiKey || settings.unsplashKey || settings.openaiKey),
-          enableQA: !revisionOpts, // Skip QA for revisions — they're targeted edits
-          ...(revisionOpts || {}),
-        }),
-        signal,
-      });
+      const availableSources: string[] = [];
+      if (settings.unsplashKey) availableSources.push("unsplash");
+      if (settings.openaiKey) availableSources.push("dalle");
+      if (settings.geminiKey) availableSources.push("gemini");
 
-      if (!res.ok) throw new Error("Pipeline request failed");
+      // --- Step 1: Layout ---
+      setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "layout", progress: 0.2 } }));
 
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error("No response stream");
+      const layoutResult = await pipelinePost("/api/pipeline/layout", {
+        prompt, style, model: settings.model,
+        apiKey: settings.apiKey || undefined,
+        systemPrompt: settings.systemPrompt || undefined,
+        critique, availableSources,
+        ...(revisionOpts || {}),
+      }, signal);
 
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let result: { html: string; label: string; width?: number; height?: number } | null = null;
-      let critiqueText: string | undefined;
+      let html: string = layoutResult.html;
+      const width: number | undefined = layoutResult.width;
+      const height: number | undefined = layoutResult.height;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      // Show layout preview immediately
+      setGroups((prev) =>
+        prev.map((g) => ({
+          ...g,
+          iterations: g.iterations.map((iter) =>
+            iter.id !== iterId ? iter : { ...iter, html, width: width || iter.width, height: height || iter.height }
+          ),
+        }))
+      );
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+      // --- Step 2: Images ---
+      if (enableImages) {
+        setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "images", progress: 0.45 } }));
 
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const event = JSON.parse(line.slice(6));
+        try {
+          const imgResult = await pipelinePost("/api/pipeline/images", {
+            html,
+            geminiKey: settings.geminiKey || undefined,
+            unsplashKey: settings.unsplashKey || undefined,
+            openaiKey: settings.openaiKey || undefined,
+          }, signal);
 
-            if (event.type === "stage") {
-              setPipelineStages((prev) => ({
-                ...prev,
-                [iterId]: { stage: event.stage, progress: event.progress, skipped: event.skipped, reason: event.reason },
-              }));
-            } else if (event.type === "preview") {
-              // Intermediate preview — update frame in-place while still loading
-              setGroups((prev) =>
-                prev.map((g) => ({
-                  ...g,
-                  iterations: g.iterations.map((iter) => {
-                    if (iter.id !== iterId) return iter;
-                    return {
-                      ...iter,
-                      html: event.html,
-                      width: event.width || iter.width,
-                      height: event.height || iter.height,
-                      // Keep isLoading true — pipeline still running
-                    };
-                  }),
-                }))
-              );
-            } else if (event.type === "result") {
-              result = {
-                html: event.html,
-                label: event.label,
-                width: event.width,
-                height: event.height,
-              };
-            } else if (event.type === "critique") {
-              critiqueText = event.critique;
-            } else if (event.type === "error") {
-              throw new Error(event.message);
-            }
-          } catch (e) {
-            // Re-throw intentional errors from the pipeline
-            if (e instanceof SyntaxError) {
-              // JSON parse error — skip malformed SSE line
-            } else {
-              throw e;
-            }
+          if (imgResult.html && imgResult.imageCount > 0) {
+            html = imgResult.html;
+            // Show composited preview
+            setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "compositing", progress: 0.65 } }));
+            setGroups((prev) =>
+              prev.map((g) => ({
+                ...g,
+                iterations: g.iterations.map((iter) =>
+                  iter.id !== iterId ? iter : { ...iter, html }
+                ),
+              }))
+            );
           }
+        } catch (imgErr) {
+          console.warn("Image step failed, continuing with placeholders:", imgErr);
+        }
+      } else {
+        setPipelineStages((prev) => ({
+          ...prev,
+          [iterId]: { stage: "images", progress: 0.45, skipped: true, reason: "No image API keys — add Unsplash, DALL·E, or Gemini key in Settings" },
+        }));
+      }
+
+      // --- Step 3: Visual QA ---
+      if (enableQA) {
+        setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "review", progress: 0.8 } }));
+        try {
+          const qaResult = await pipelinePost("/api/pipeline/review", {
+            html, prompt, width, height,
+            model: settings.model,
+            apiKey: settings.apiKey || undefined,
+          }, signal);
+          if (qaResult.html) html = qaResult.html;
+        } catch (qaErr) {
+          console.warn("Visual QA failed, using unreviewed version:", qaErr);
         }
       }
 
-      if (!result) throw new Error("No result from pipeline");
-      return { ...result, critique: critiqueText };
+      // Post-process
+      html = capOversizedSections(html);
+
+      const label = isRevision ? "Revised" : `Variation ${index + 1}`;
+
+      // --- Step 4: Critique (fire and don't block result) ---
+      let critiqueText: string | undefined;
+      setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "done", progress: 1.0 } }));
+
+      try {
+        const critiqueResult = await pipelinePost("/api/pipeline/critique", {
+          html, prompt,
+          model: settings.model,
+          apiKey: settings.apiKey || undefined,
+        }, signal);
+        critiqueText = critiqueResult.critique || undefined;
+      } catch {
+        // Critique is optional
+      }
+
+      return { html, label, width, height, critique: critiqueText };
     },
-    [settings.apiKey, settings.model, settings.systemPrompt, settings.geminiKey, settings.unsplashKey, settings.openaiKey]
+    [settings.apiKey, settings.model, settings.systemPrompt, settings.geminiKey, settings.unsplashKey, settings.openaiKey, pipelinePost, capOversizedSections]
   );
 
   const handleGenerate = useCallback(
