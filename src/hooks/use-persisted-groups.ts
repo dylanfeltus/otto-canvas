@@ -5,6 +5,19 @@ import type { GenerationGroup } from "@/lib/types";
 
 const STORAGE_KEY = "otto-canvas-session";
 
+/** Strip base64 data URIs from HTML to keep localStorage under quota */
+function stripBase64ForStorage(groups: GenerationGroup[]): GenerationGroup[] {
+  return groups.map((g) => ({
+    ...g,
+    iterations: g.iterations.map((it) => ({
+      ...it,
+      html: it.html
+        ? it.html.replace(/src="data:image\/[^"]+"/g, 'src="[img-stripped]"')
+        : it.html,
+    })),
+  }));
+}
+
 export function usePersistedGroups() {
   const [groups, setGroupsRaw] = useState<GenerationGroup[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -37,8 +50,12 @@ export function usePersistedGroups() {
         const toSave = newGroups.filter((g) =>
           g.iterations.some((it) => it.html && !it.isLoading)
         );
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-      } catch {}
+        // Strip base64 images to stay under localStorage ~5MB quota
+        const lightweight = stripBase64ForStorage(toSave);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(lightweight));
+      } catch (err) {
+        console.warn("[persist] Failed to save canvas session:", err);
+      }
     }, 500);
   }, []);
 
