@@ -68,6 +68,7 @@ SPACING & LAYOUT:
 - Container max-width: 1200px, centered with auto margins. Padding: 24px mobile, 48px+ desktop.
 - Use CSS Grid for feature grids (2–3 columns) and pricing cards. Full-width sections with contained content.
 - Mobile-first: stack all columns below 768px. Hero text size drops ~40% on mobile.
+- Hero section: max-height 700px. Never let a single section dominate the entire design.
 
 COLOR:
 - Lead with one bold brand color. Use it for CTAs, key highlights, and accent elements.
