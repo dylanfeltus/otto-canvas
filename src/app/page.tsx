@@ -106,23 +106,21 @@ export default function Home() {
 
   // Grid positioning — 2 columns, centered in viewport
   const H_GAP = 60;
-  const V_GAP = 80;
   const GROUP_GAP = 120;
   const ROW_HEIGHT = 700;
-  const COLS = 2;
-  const ITEM_WIDTH = 640; // reasonable default for grid spacing
+  const ITEM_WIDTH = 640;
 
   const getGridPositions = useCallback(
     (count: number): Point[] => {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      const gridW = COLS * ITEM_WIDTH + (COLS - 1) * H_GAP;
+      const gridW = count * ITEM_WIDTH + (count - 1) * H_GAP;
 
       let startX: number;
       let startY: number;
 
       if (groups.length === 0) {
-        // Center in current viewport
+        // Center first row in viewport
         startX = (vw / 2 - canvas.offset.x) / canvas.scale - gridW / 2;
         startY = (vh / 3 - canvas.offset.y) / canvas.scale;
       } else {
@@ -136,9 +134,10 @@ export default function Home() {
         startY = maxBottom + GROUP_GAP;
       }
 
+      // All frames in a single horizontal row
       return Array.from({ length: count }, (_, i) => ({
-        x: startX + (i % COLS) * (ITEM_WIDTH + H_GAP),
-        y: startY + Math.floor(i / COLS) * (ROW_HEIGHT + V_GAP),
+        x: startX + i * (ITEM_WIDTH + H_GAP),
+        y: startY,
       }));
     },
     [canvas.offset, canvas.scale, groups]
@@ -372,19 +371,9 @@ export default function Home() {
 
         const getNextPosition = (index: number): Point => {
           if (index === 0 || completedFrames.length === 0) return positions[0];
-          // Place to the right of previous frame with H_GAP
+          // Always place to the right of previous frame — single horizontal row
           const prev = completedFrames[completedFrames.length - 1];
-          const nextX = prev.x + prev.w + H_GAP;
-          // Check if it fits in the row (2 per row)
-          if (index % COLS !== 0) {
-            return { x: nextX, y: prev.y };
-          }
-          // New row: below the tallest frame in the previous row
-          let maxBottom = 0;
-          for (const f of completedFrames) {
-            maxBottom = Math.max(maxBottom, f.y + f.h);
-          }
-          return { x: positions[0].x, y: maxBottom + V_GAP };
+          return { x: prev.x + prev.w + H_GAP, y: prev.y };
         };
 
         const addPlaceholder = (iterId: string, index: number, pos: Point) => {
