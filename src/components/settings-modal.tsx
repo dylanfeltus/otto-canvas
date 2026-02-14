@@ -25,6 +25,8 @@ SPACING & LAYOUT:
 - Use CSS Grid for page structure, Flexbox for component internals.
 - Sidebar: 240–280px. Content max-width: 960–1200px. Cards: 16–24px padding.
 - Responsive breakpoints: 640px (mobile), 768px (tablet), 1024px (desktop), 1280px (wide).
+- Sidebar navigation must remain fixed on the left side — never collapse or stack vertically. Use a fixed width (240-280px) sidebar with the content area filling the remaining space. Do not use responsive breakpoints that would stack the sidebar.
+- Fill the entire canvas dimensions with content. If the main content area is shorter than the frame, add realistic additional sections, more list items, or increase spacing — never leave large empty gaps at the bottom.
 
 COLOR:
 - Neutral scale: #111827 (text) · #374151 (secondary) · #6B7280 (muted) · #D1D5DB (border) · #F3F4F6 (surface) · #F9FAFB (background) · #FFFFFF (card).
