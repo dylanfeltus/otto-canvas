@@ -115,7 +115,7 @@ REQUIRED ATTRIBUTES on every placeholder:
 - data-placeholder = detailed image description/prompt
 - data-ph-w / data-ph-h = pixel dimensions that fit the layout
 - data-img-source = which image API to use: "unsplash", "dalle", or "gemini"
-- data-img-query = search terms (especially important for Unsplash)
+- data-img-query = SHORT search keywords for Unsplash (3-5 words max, e.g., "charleston hotel veranda twilight" or "modern office workspace plants"). This must be concise — NOT the full description. For DALL-E/Gemini the full data-placeholder description is used instead.
 
 ${availableSources && availableSources.length > 0
   ? `AVAILABLE IMAGE SOURCES (choose the best one for each placeholder):
@@ -243,7 +243,11 @@ function parsePlaceholders(html: string, availableSources: string[]): Placeholde
 
 /** Generate a single image via Unsplash search API */
 async function generateUnsplashImage(ph: Placeholder, unsplashKey: string): Promise<string | null> {
-  const query = ph.query || ph.description;
+  console.log(`[pipeline] Unsplash key: ${unsplashKey.slice(0, 6)}...`);
+  // Use short query for Unsplash search — truncate long descriptions to first few keywords
+  const rawQuery = ph.query || ph.description;
+  const query = rawQuery.split(/[,.]/)[0].split(" ").slice(0, 5).join(" ");
+  console.log(`[pipeline] Unsplash query: "${query}" (from "${rawQuery.slice(0, 60)}")`);
   const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=${ph.width > ph.height * 1.3 ? "landscape" : ph.height > ph.width * 1.3 ? "portrait" : "squarish"}`;
   const res = await fetch(url, {
     headers: { Authorization: `Client-ID ${unsplashKey}` },
