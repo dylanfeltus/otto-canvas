@@ -27,40 +27,55 @@ const IMAGE_FORMATS: { id: ExportFormat; label: string; icon: string; ext?: stri
 const ALL_FORMATS = [...CODE_FORMATS, ...IMAGE_FORMATS];
 
 async function htmlToImageBlob(html: string, width: number, type: "image/png" | "image/jpeg"): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const iframe = document.createElement("iframe");
-    iframe.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;height:12000px;border:none;`;
-    document.body.appendChild(iframe);
+  // Render in a hidden div (not iframe) so html-to-image can access the DOM
+  const container = document.createElement("div");
+  container.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;background:white;z-index:-1;`;
 
-    const doc = iframe.contentDocument;
-    if (!doc) { document.body.removeChild(iframe); reject(new Error("No iframe doc")); return; }
+  // Extract <style> tags and body content
+  const styleMatch = html.match(/<style[^>]*>([\s\S]*?)<\/style>/gi);
+  const styles = styleMatch ? styleMatch.join("\n") : "";
+  // Scope styles to avoid leaking into the page
+  const scopeId = "otto-export-" + Date.now();
+  const scopedStyles = styles.replace(/<style([^>]*)>/gi, `<style$1>\n#${scopeId} `).replace(/\n([a-zA-Z*\.\#\[\:@])/g, `\n#${scopeId} $1`);
 
-    doc.open();
-    doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:white;width:${width}px;}</style></head><body>${html}</body></html>`);
-    doc.close();
+  // Strip style/head/html/body tags to get inner content
+  let bodyContent = html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<\/?(?:html|head|body|!DOCTYPE)[^>]*>/gi, "")
+    .replace(/<!--size:\d+x\d+-->/g, "")
+    .trim();
 
-    // Wait for render
-    setTimeout(async () => {
-      try {
-        const body = doc.body;
-        const h = body.scrollHeight;
-        iframe.style.height = h + "px";
+  container.id = scopeId;
+  container.innerHTML = scopedStyles + bodyContent;
+  document.body.appendChild(container);
 
-        // Use html-to-image via dynamic import
-        const { toPng, toJpeg } = await import("html-to-image");
-        const fn = type === "image/jpeg" ? toJpeg : toPng;
-        const dataUrl = await fn(body, { width, height: h, quality: 0.95, pixelRatio: 2 });
+  // Wait for images to load
+  const images = container.querySelectorAll("img");
+  await Promise.all(
+    Array.from(images).map(
+      (img) =>
+        new Promise<void>((resolve) => {
+          if (img.complete) return resolve();
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+          setTimeout(resolve, 3000);
+        })
+    )
+  );
 
-        const res = await fetch(dataUrl);
-        const blob = await res.blob();
-        resolve(blob);
-      } catch (err) {
-        reject(err);
-      } finally {
-        document.body.removeChild(iframe);
-      }
-    }, 500);
-  });
+  // Small delay for rendering
+  await new Promise((r) => setTimeout(r, 300));
+
+  try {
+    const h = container.scrollHeight;
+    const { toPng, toJpeg } = await import("html-to-image");
+    const fn = type === "image/jpeg" ? toJpeg : toPng;
+    const dataUrl = await fn(container, { width, height: h, quality: 0.95, pixelRatio: 2 });
+    const res = await fetch(dataUrl);
+    return await res.blob();
+  } finally {
+    document.body.removeChild(container);
+  }
 }
 
 export function ExportMenu({ html, label, width = 480, apiKey, model }: ExportMenuProps) {
