@@ -1,9 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 export const maxDuration = 120;
 
-const DEFAULT_MODEL = "claude-opus-4-6";
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 
 function getClient(apiKey?: string): Anthropic {
   if (apiKey) return new Anthropic({ apiKey });
@@ -56,30 +56,17 @@ function stripBase64Images(html: string): { stripped: string; restore: (output: 
   return { stripped, restore };
 }
 
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const {
-      prompt, style, model, apiKey, systemPrompt, critique,
-      availableSources = [], revision, existingHtml,
-    } = body;
+function buildRevisionPrompt(
+  systemPrompt: string | undefined,
+  existingHtml: string,
+  prompt: string,
+  revision: string
+): string {
+  const customBlock = systemPrompt ? `\n\nADDITIONAL INSTRUCTIONS FROM USER:\n${systemPrompt}\n` : "";
+  const { stripped, restore } = stripBase64Images(existingHtml);
 
-    const useModel = model || DEFAULT_MODEL;
-    const client = getClient(apiKey);
-    const isRevision = !!(revision && existingHtml);
-
-    let result: { html: string; width?: number; height?: number };
-
-    if (isRevision) {
-      const customBlock = systemPrompt ? `\n\nADDITIONAL INSTRUCTIONS FROM USER:\n${systemPrompt}\n` : "";
-      const { stripped, restore } = stripBase64Images(existingHtml);
-
-      const message = await client.messages.create({
-        model: useModel,
-        max_tokens: 16384,
-        messages: [{
-          role: "user",
-          content: `You are a world-class visual designer. You are EDITING an existing design — not creating a new one.${customBlock}
+  return JSON.stringify({ stripped, restoreNeeded: true }) + "\n---PROMPT---\n" +
+    `You are a world-class visual designer. You are EDITING an existing design — not creating a new one.${customBlock}
 
 Here is the EXISTING HTML design:
 
@@ -109,23 +96,20 @@ ABSOLUTELY NO MOTION — no CSS animations, transitions, @keyframes, hover effec
 SIZE — output a size comment on the FIRST line:
 <!--size:WIDTHxHEIGHT-->
 
-OUTPUT: HTML only — no explanation, no markdown, no code fences. ALL CSS in a <style> tag.`,
-        }],
-      });
+OUTPUT: HTML only — no explanation, no markdown, no code fences. ALL CSS in a <style> tag.`;
+}
 
-      const raw = message.content[0].type === "text" ? message.content[0].text : "";
-      const parsed = parseHtmlWithSize(raw);
-      result = { ...parsed, html: restore(parsed.html) };
-    } else {
-      const critiqueBlock = critique ? `\n\nIMPROVEMENT FEEDBACK from previous variation (apply these learnings):\n${critique}\n` : "";
-      const customBlock = systemPrompt ? `\n\nADDITIONAL INSTRUCTIONS FROM USER:\n${systemPrompt}\n` : "";
+function buildNewPrompt(
+  systemPrompt: string | undefined,
+  critique: string | undefined,
+  prompt: string,
+  style: string,
+  availableSources: string[]
+): string {
+  const critiqueBlock = critique ? `\n\nIMPROVEMENT FEEDBACK from previous variation (apply these learnings):\n${critique}\n` : "";
+  const customBlock = systemPrompt ? `\n\nADDITIONAL INSTRUCTIONS FROM USER:\n${systemPrompt}\n` : "";
 
-      const message = await client.messages.create({
-        model: useModel,
-        max_tokens: 16384,
-        messages: [{
-          role: "user",
-          content: `You are a world-class visual designer. Generate a stunning, self-contained HTML/CSS design.${customBlock}${critiqueBlock}
+  return `You are a world-class visual designer. Generate a stunning, self-contained HTML/CSS design.${customBlock}${critiqueBlock}
 
 Design request: "${prompt}"
 Style direction: ${style}
@@ -146,10 +130,10 @@ REQUIRED ATTRIBUTES on every placeholder:
 - data-img-query = SHORT search keywords for Unsplash (3-5 words max)
 
 ${availableSources && availableSources.length > 0
-  ? `AVAILABLE IMAGE SOURCES (choose the best one for each placeholder):
+    ? `AVAILABLE IMAGE SOURCES (choose the best one for each placeholder):
 ${availableSources.includes("unsplash") ? '- "unsplash" — BEST for real photographs\n' : ""}${availableSources.includes("dalle") ? '- "dalle" — BEST for custom illustrations, abstract art\n' : ""}${availableSources.includes("gemini") ? '- "gemini" — BEST for design assets, UI elements\n' : ""}
 Choose the source that best matches what each placeholder needs.`
-  : 'Set data-img-source="gemini" for all placeholders (only source available).'}
+    : 'Set data-img-source="gemini" for all placeholders (only source available).'}
 
 Rules:
 - Include 1-6 placeholders per design
@@ -173,18 +157,124 @@ OUTPUT:
 - Then HTML only — no explanation, no markdown, no code fences
 - ALL CSS in a <style> tag at the top
 - Self-contained, no external dependencies
-- Generate exactly ONE design`,
-        }],
-      });
+- Generate exactly ONE design`;
+}
 
-      const raw = message.content[0].type === "text" ? message.content[0].text : "";
-      result = parseHtmlWithSize(raw);
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const {
+      prompt, style, model, apiKey, systemPrompt, critique,
+      availableSources = [], revision, existingHtml,
+    } = body;
+
+    const useModel = model || DEFAULT_MODEL;
+    const client = getClient(apiKey);
+    const isRevision = !!(revision && existingHtml);
+
+    let userContent: string;
+    let restoreFn: ((s: string) => string) | null = null;
+
+    if (isRevision) {
+      const { stripped, restore } = stripBase64Images(existingHtml);
+      restoreFn = restore;
+      const customBlock = systemPrompt ? `\n\nADDITIONAL INSTRUCTIONS FROM USER:\n${systemPrompt}\n` : "";
+      userContent = `You are a world-class visual designer. You are EDITING an existing design — not creating a new one.${customBlock}
+
+Here is the EXISTING HTML design:
+
+${stripped}
+
+Note: [IMAGE_PLACEHOLDER_N] references are real images — keep all <img> tags and their src attributes exactly as-is.
+
+The original request was: "${prompt}"
+
+The user wants this specific change: "${revision}"
+
+CRITICAL RULES:
+- Return exactly ONE design — the existing design with ONLY the requested change applied
+- Do NOT generate multiple variations, alternatives, or options
+- Do NOT stack multiple versions vertically or horizontally
+- PRESERVE the existing layout, structure, and content
+- ONLY modify what was specifically requested — change nothing else
+
+IMAGE PLACEHOLDERS — where the design needs a NEW photo/visual (only if the revision requires new imagery):
+- Use: <div data-placeholder="DESCRIPTION" data-ph-w="WIDTH" data-ph-h="HEIGHT" style="width:WIDTHpx;height:HEIGHTpx;background:#e5e7eb;display:flex;align-items:center;justify-content:center;border-radius:8px;overflow:hidden;">
+    <span style="color:#9ca3af;font-size:12px;text-align:center;padding:8px;">DESCRIPTION</span>
+  </div>
+- Keep any existing <img> tags as-is unless the revision specifically asks to change them
+
+ABSOLUTELY NO MOTION — no CSS animations, transitions, @keyframes, hover effects.
+
+SIZE — output a size comment on the FIRST line:
+<!--size:WIDTHxHEIGHT-->
+
+OUTPUT: HTML only — no explanation, no markdown, no code fences. ALL CSS in a <style> tag.`;
+    } else {
+      userContent = buildNewPrompt(systemPrompt, critique, prompt, style, availableSources);
     }
 
-    return NextResponse.json(result);
+    // Use streaming to avoid Vercel timeout — stream keeps connection alive
+    const stream = client.messages.stream({
+      model: useModel,
+      max_tokens: 16384,
+      messages: [{ role: "user", content: userContent }],
+    });
+
+    // Collect the full response via streaming, then return JSON
+    // We use a ReadableStream to keep the connection alive with periodic pings
+    const encoder = new TextEncoder();
+
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          let fullText = "";
+
+          // Send a space immediately to establish the connection
+          controller.enqueue(encoder.encode(" "));
+
+          const pingInterval = setInterval(() => {
+            try {
+              controller.enqueue(encoder.encode(" "));
+            } catch {
+              // stream already closed
+            }
+          }, 5000);
+
+          const message = await stream.finalMessage();
+          clearInterval(pingInterval);
+
+          fullText = message.content[0].type === "text" ? message.content[0].text : "";
+
+          let result = parseHtmlWithSize(fullText);
+          if (restoreFn) {
+            result = { ...result, html: restoreFn(result.html) };
+          }
+
+          // Send the actual JSON result
+          controller.enqueue(encoder.encode(JSON.stringify(result)));
+          controller.close();
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Layout generation failed";
+          console.error("Layout streaming error:", msg);
+          controller.enqueue(encoder.encode(JSON.stringify({ error: msg })));
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(readable, {
+      headers: {
+        "Content-Type": "application/json",
+        "Transfer-Encoding": "chunked",
+      },
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Layout generation failed";
     console.error("Layout error:", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
