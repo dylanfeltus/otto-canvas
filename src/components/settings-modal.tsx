@@ -69,6 +69,7 @@ SPACING & LAYOUT:
 - Use CSS Grid for feature grids (2–3 columns) and pricing cards. Full-width sections with contained content.
 - Mobile-first: stack all columns below 768px. Hero text size drops ~40% on mobile.
 - Hero section: max-height 700px. Never let a single section dominate the entire design.
+- The design canvas is NOT a browser viewport. Design as if the first 800-900px is above the fold. Structure the page with multiple distinct sections (hero, features, testimonials, CTA, footer) that fill the full frame height — never let one section take more than 40% of the total design height.
 
 COLOR:
 - Lead with one bold brand color. Use it for CTAs, key highlights, and accent elements.

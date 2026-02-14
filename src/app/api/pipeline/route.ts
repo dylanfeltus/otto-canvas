@@ -616,6 +616,9 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        // Post-process: cap oversized sections
+        html = capOversizedSections(html);
+
         // Stage 5: Done — send result
         send(encodeStage("done", 1.0));
         send(encodeResult(html, isRevision ? "Revised" : `Variation ${index + 1}`, width, height));
@@ -653,6 +656,47 @@ export async function POST(req: NextRequest) {
 }
 
 // --- Helpers ---
+
+/** Post-process: cap oversized sections to prevent single-section domination */
+function capOversizedSections(html: string): string {
+  // Match <section> or top-level <div> with large explicit heights
+  // Inject max-height on sections that have height > 800px via inline styles
+  let result = html;
+
+  // Cap sections with explicit height in inline styles
+  result = result.replace(
+    /(<(?:section|div)\s[^>]*style="[^"]*?)height\s*:\s*(\d+)px/gi,
+    (_match, prefix, heightStr) => {
+      const h = parseInt(heightStr, 10);
+      if (h > 800) {
+        return `${prefix}height:${h}px;max-height:800px;overflow:hidden`;
+      }
+      return _match;
+    }
+  );
+
+  // Also cap min-height patterns
+  result = result.replace(
+    /(<(?:section|div)\s[^>]*style="[^"]*?)min-height\s*:\s*(\d+)px/gi,
+    (_match, prefix, heightStr) => {
+      const h = parseInt(heightStr, 10);
+      if (h > 800) {
+        return `${prefix}min-height:${h}px;max-height:800px;overflow:hidden`;
+      }
+      return _match;
+    }
+  );
+
+  // Cap 100vh patterns (which don't work in iframes anyway)
+  result = result.replace(
+    /(<(?:section|div)\s[^>]*style="[^"]*?)(?:min-)?height\s*:\s*100vh/gi,
+    (_match, prefix) => {
+      return `${prefix}height:auto;max-height:800px;overflow:hidden`;
+    }
+  );
+
+  return result;
+}
 
 function parseHtmlWithSize(raw: string): { html: string; width?: number; height?: number } {
   let cleaned = raw.trim();
