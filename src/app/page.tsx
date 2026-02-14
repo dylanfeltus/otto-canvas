@@ -1075,6 +1075,8 @@ export default function Home() {
         isOwnKey={isOwnKey}
         model={settings.model}
         hasFrames={groups.length > 0}
+        showZoomControls={settings.showZoomControls}
+        onToggleZoomControls={() => setSettings({ showZoomControls: !settings.showZoomControls })}
       />
 
       <PromptBar onSubmit={handleGenerate} isGenerating={isGenerating} genStatus={genStatus} onCancel={() => abortRef.current?.abort()} />

@@ -12,6 +12,7 @@ export interface Settings {
   systemPromptPreset: string;
   conceptCount: number;
   quickMode: boolean;
+  showZoomControls: boolean;
 }
 
 const STORAGE_KEY = "otto-settings";
@@ -36,6 +37,7 @@ export function useSettings() {
     systemPromptPreset: "custom",
     conceptCount: 4,
     quickMode: false,
+    showZoomControls: false,
   });
   const [loaded, setLoaded] = useState(false);
 
@@ -55,6 +57,7 @@ export function useSettings() {
           systemPromptPreset: parsed.systemPromptPreset || "custom",
           conceptCount: parsed.conceptCount || 4,
           quickMode: parsed.quickMode ?? false,
+          showZoomControls: parsed.showZoomControls ?? false,
         });
       }
     } catch {}

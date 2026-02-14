@@ -19,6 +19,8 @@ interface ToolbarProps {
   isOwnKey: boolean;
   model: string;
   hasFrames: boolean;
+  showZoomControls: boolean;
+  onToggleZoomControls: () => void;
 }
 
 export function Toolbar({
@@ -36,6 +38,8 @@ export function Toolbar({
   isOwnKey,
   model,
   hasFrames,
+  showZoomControls,
+  onToggleZoomControls,
 }: ToolbarProps) {
   const modelLabel = MODELS.find((m) => m.id === model)?.label || "Sonnet 4.5";
   const [menuOpen, setMenuOpen] = useState(false);
@@ -78,29 +82,33 @@ export function Toolbar({
         </svg>
       </ToolButton>
 
-      <div className="w-px h-5 bg-white/15 mx-1" />
+      {showZoomControls && (
+        <>
+          <div className="w-px h-5 bg-white/15 mx-1" />
 
-      {/* Zoom controls */}
-      <ToolButton onClick={onZoomOut} title="Zoom out">
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      </ToolButton>
+          {/* Zoom controls */}
+          <ToolButton onClick={onZoomOut} title="Zoom out">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </ToolButton>
 
-      <button
-        onClick={onResetView}
-        className="text-[11px] font-medium text-gray-400 hover:text-white px-1.5 py-1 rounded-lg min-w-[42px] text-center transition-colors"
-        title="Reset zoom"
-      >
-        {Math.round(scale * 100)}%
-      </button>
+          <button
+            onClick={onResetView}
+            className="text-[11px] font-medium text-gray-400 hover:text-white px-1.5 py-1 rounded-lg min-w-[42px] text-center transition-colors"
+            title="Reset zoom"
+          >
+            {Math.round(scale * 100)}%
+          </button>
 
-      <ToolButton onClick={onZoomIn} title="Zoom in">
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      </ToolButton>
+          <ToolButton onClick={onZoomIn} title="Zoom in">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </ToolButton>
+        </>
+      )}
 
       <div className="w-px h-5 bg-white/15 mx-1" />
 
@@ -135,6 +143,7 @@ export function Toolbar({
         {menuOpen && (
           <div className="absolute top-full right-0 mt-2 w-48 rounded-xl bg-gray-900/90 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] py-1 overflow-hidden">
             <MenuItem icon="💡" label="Prompt Library" onClick={() => { onOpenLibrary(); setMenuOpen(false); }} />
+            <MenuItem icon={showZoomControls ? "✓" : " "} label="Show Zoom Controls" onClick={() => { onToggleZoomControls(); setMenuOpen(false); }} />
             <MenuItem icon="📥" label="Import .otto" onClick={() => { onImport(); setMenuOpen(false); }} />
             {hasFrames && (
               <>
