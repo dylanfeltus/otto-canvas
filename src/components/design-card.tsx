@@ -159,9 +159,30 @@ setTimeout(reportHeight, 1500);
             : isSelectMode
             ? isDragging ? "cursor-grabbing shadow-xl ring-2 ring-blue-400/30" : "cursor-grab hover:shadow-lg"
             : ""
-        } ${iteration.isRegenerating ? "opacity-60" : ""}`}
+        }`}
         style={{ width: iteration.width || FRAME_WIDTH, height: frameHeight }}
       >
+        {/* Revision overlay */}
+        {iteration.isRegenerating && (
+          <div className="absolute inset-0 z-10 bg-white/70 backdrop-blur-[2px] flex flex-col items-center justify-center gap-3 rounded-xl">
+            <svg className="w-8 h-8 animate-spin" viewBox="0 0 40 40" fill="none">
+              <circle cx="20" cy="20" r="16" stroke="#e5e7eb" strokeWidth="3" />
+              <circle cx="20" cy="20" r="16" stroke="url(#spinner-gradient-rev)" strokeWidth="3" strokeDasharray="80" strokeDashoffset="60" strokeLinecap="round" />
+              <defs>
+                <linearGradient id="spinner-gradient-rev" x1="0" y1="0" x2="40" y2="40">
+                  <stop offset="0%" stopColor="#8b5cf6" />
+                  <stop offset="100%" stopColor="#3b82f6" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <span className="text-[12px] font-medium text-gray-500">
+              {pipelineStatus && pipelineStatus.stage !== "done" && pipelineStatus.stage !== "error"
+                ? STAGE_CONFIG[pipelineStatus.stage].label
+                : "Revising..."}
+            </span>
+          </div>
+        )}
+
         {iteration.isLoading ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-4">
             <div className="relative w-10 h-10">

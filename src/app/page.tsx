@@ -774,15 +774,21 @@ export default function Home() {
           const controller = new AbortController();
           const typedTarget = targetIteration as DesignIteration;
 
-          const result = await runPipelineForFrame(
-            iterId,
-            typedTarget.prompt || "",
-            "revision",
-            0,
-            undefined,
-            controller.signal,
-            { revision: text, existingHtml: typedTarget.html },
-          );
+          let result;
+          try {
+            result = await runPipelineForFrame(
+              iterId,
+              typedTarget.prompt || "",
+              "revision",
+              0,
+              undefined,
+              controller.signal,
+              { revision: text, existingHtml: typedTarget.html },
+            );
+          } catch (err) {
+            console.error("Revision pipeline failed:", err);
+            throw err;
+          }
 
           setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "done", progress: 1 } }));
 
@@ -811,6 +817,7 @@ export default function Home() {
 
         } catch (err) {
           console.error("Revision failed:", err);
+          // ALWAYS reset isRegenerating and pipeline stage on error
           setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "error", progress: 0 } }));
           setGroups((prev) =>
             prev.map((g) => ({
@@ -823,7 +830,7 @@ export default function Home() {
           );
           updateComment(iterId, commentId, {
             status: "done",
-            aiResponse: "⚠️ Revision failed. Try again.",
+            aiResponse: `⚠️ Revision failed: ${err instanceof Error ? err.message : "Unknown error"}. Try again.`,
           });
         }
       }
