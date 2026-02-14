@@ -353,13 +353,25 @@ export default function Home() {
       if (enableQA) {
         setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "review", progress: 0.8 } }));
         try {
+          // Strip base64 images client-side to avoid 413 FUNCTION_PAYLOAD_TOO_LARGE
+          const reviewImages: string[] = [];
+          const htmlForReview = html.replace(/src="(data:image\/[^"]+)"/g, (_m: string, uri: string) => {
+            const idx = reviewImages.length;
+            reviewImages.push(uri);
+            return `src="[IMG_STRIPPED_${idx}]"`;
+          });
           const qaResult = await pipelinePost("/api/pipeline/review", {
-            html, prompt, width, height,
+            html: htmlForReview, prompt, width, height,
             model: settings.model,
             apiKey: settings.apiKey || undefined,
           }, signal);
           if (qaResult.html) {
-            html = qaResult.html;
+            // Restore base64 images into reviewed HTML
+            let reviewed = qaResult.html;
+            for (let i = 0; i < reviewImages.length; i++) {
+              reviewed = reviewed.replace(`[IMG_STRIPPED_${i}]`, reviewImages[i]);
+            }
+            html = reviewed;
             // Show reviewed/polished version immediately
             setGroups((prev) =>
               prev.map((g) => ({
@@ -385,8 +397,10 @@ export default function Home() {
       setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "done", progress: 1.0 } }));
 
       try {
+        // Strip base64 images client-side to avoid 413 FUNCTION_PAYLOAD_TOO_LARGE
+        const htmlForCritique = html.replace(/src="(data:image\/[^"]+)"/g, () => 'src="[IMG_STRIPPED]"');
         const critiqueResult = await pipelinePost("/api/pipeline/critique", {
-          html, prompt,
+          html: htmlForCritique, prompt,
           model: settings.model,
           apiKey: settings.apiKey || undefined,
         }, signal);
