@@ -93,7 +93,7 @@ async function generateLayout(
 
   const message = await client.messages.create({
     model,
-    max_tokens: 8192,
+    max_tokens: 16384,
     messages: [
       {
         role: "user",
@@ -151,6 +151,9 @@ OUTPUT:
   });
 
   const raw = message.content[0].type === "text" ? message.content[0].text : "";
+  if (raw && !raw.includes("</html>")) {
+    console.warn(`[pipeline] Warning: layout HTML may be truncated (no closing </html> tag, ${raw.length} chars)`);
+  }
   return parseHtmlWithSize(raw);
 }
 
@@ -171,7 +174,7 @@ async function generateRevision(
 
   const message = await client.messages.create({
     model,
-    max_tokens: 8192,
+    max_tokens: 16384,
     messages: [
       {
         role: "user",
@@ -211,6 +214,9 @@ OUTPUT: HTML only — no explanation, no markdown, no code fences. ALL CSS in a 
   });
 
   const raw = message.content[0].type === "text" ? message.content[0].text : "";
+  if (raw && !raw.includes("</html>")) {
+    console.warn(`[pipeline] Warning: revision HTML may be truncated (no closing </html> tag, ${raw.length} chars)`);
+  }
   const parsed = parseHtmlWithSize(raw);
   return { ...parsed, html: restore(parsed.html) };
 }
@@ -430,7 +436,7 @@ async function visualQA(
 
   const message = await client.messages.create({
     model,
-    max_tokens: 8192,
+    max_tokens: 16384,
     messages: [
       {
         role: "user",
@@ -466,6 +472,9 @@ RULES:
   });
 
   const raw = message.content[0].type === "text" ? message.content[0].text : "";
+  if (raw && !raw.includes("</html>")) {
+    console.warn(`[pipeline] Warning: QA HTML may be truncated (no closing </html> tag, ${raw.length} chars)`);
+  }
   return restore(parseHtmlWithSize(raw).html);
 }
 
