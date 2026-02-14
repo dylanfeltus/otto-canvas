@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 60;
 
-const DEFAULT_MODEL = "claude-sonnet-4-5-20241022";
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 
 function getClient(apiKey?: string): Anthropic {
   if (apiKey) return new Anthropic({ apiKey });
@@ -12,11 +12,14 @@ function getClient(apiKey?: string): Anthropic {
 
 export async function POST(req: NextRequest) {
   try {
-    const { html, format, apiKey, model } = await req.json();
+    const { html: rawHtml, format, apiKey, model } = await req.json();
 
-    if (!html || !format) {
+    if (!rawHtml || !format) {
       return NextResponse.json({ error: "html and format required" }, { status: 400 });
     }
+
+    // Strip base64 images to reduce payload size for AI conversion
+    const html = rawHtml.replace(/src="data:image\/[^"]+"/g, 'src="[image]"');
 
     const client = getClient(apiKey);
     const useModel = model || DEFAULT_MODEL;
