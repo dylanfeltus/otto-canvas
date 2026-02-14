@@ -27,54 +27,57 @@ const IMAGE_FORMATS: { id: ExportFormat; label: string; icon: string; ext?: stri
 const ALL_FORMATS = [...CODE_FORMATS, ...IMAGE_FORMATS];
 
 async function htmlToImageBlob(html: string, width: number, type: "image/png" | "image/jpeg"): Promise<Blob> {
-  // Render in a hidden div (not iframe) so html-to-image can access the DOM
-  const container = document.createElement("div");
-  container.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;background:white;z-index:-1;`;
+  // Use a same-origin blob URL in an iframe so we can access its DOM
+  const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:white;width:${width}px;}</style></head><body>${html}</body></html>`;
+  const blob = new Blob([fullHtml], { type: "text/html" });
+  const blobUrl = URL.createObjectURL(blob);
 
-  // Extract <style> tags and body content
-  const styleMatch = html.match(/<style[^>]*>([\s\S]*?)<\/style>/gi);
-  const styles = styleMatch ? styleMatch.join("\n") : "";
-  // Scope styles to avoid leaking into the page
-  const scopeId = "otto-export-" + Date.now();
-  const scopedStyles = styles.replace(/<style([^>]*)>/gi, `<style$1>\n#${scopeId} `).replace(/\n([a-zA-Z*\.\#\[\:@])/g, `\n#${scopeId} $1`);
-
-  // Strip style/head/html/body tags to get inner content
-  let bodyContent = html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<\/?(?:html|head|body|!DOCTYPE)[^>]*>/gi, "")
-    .replace(/<!--size:\d+x\d+-->/g, "")
-    .trim();
-
-  container.id = scopeId;
-  container.innerHTML = scopedStyles + bodyContent;
-  document.body.appendChild(container);
-
-  // Wait for images to load
-  const images = container.querySelectorAll("img");
-  await Promise.all(
-    Array.from(images).map(
-      (img) =>
-        new Promise<void>((resolve) => {
-          if (img.complete) return resolve();
-          img.onload = () => resolve();
-          img.onerror = () => resolve();
-          setTimeout(resolve, 3000);
-        })
-    )
-  );
-
-  // Small delay for rendering
-  await new Promise((r) => setTimeout(r, 300));
+  const iframe = document.createElement("iframe");
+  iframe.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;height:12000px;border:none;`;
+  document.body.appendChild(iframe);
 
   try {
-    const h = container.scrollHeight;
+    // Load via blob URL (same-origin, so we can access contentDocument)
+    await new Promise<void>((resolve, reject) => {
+      iframe.onload = () => resolve();
+      iframe.onerror = () => reject(new Error("Failed to load iframe"));
+      iframe.src = blobUrl;
+    });
+
+    const doc = iframe.contentDocument;
+    if (!doc) throw new Error("No iframe document");
+
+    // Wait for images
+    const images = doc.querySelectorAll("img");
+    await Promise.all(
+      Array.from(images).map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            if (img.complete) return resolve();
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            setTimeout(resolve, 3000);
+          })
+      )
+    );
+
+    await new Promise((r) => setTimeout(r, 500));
+
+    const body = doc.body;
+    const h = body.scrollHeight;
+    iframe.style.height = h + "px";
+
+    // Small delay after resize
+    await new Promise((r) => setTimeout(r, 100));
+
     const { toPng, toJpeg } = await import("html-to-image");
     const fn = type === "image/jpeg" ? toJpeg : toPng;
-    const dataUrl = await fn(container, { width, height: h, quality: 0.95, pixelRatio: 2 });
+    const dataUrl = await fn(body, { width, height: h, quality: 0.95, pixelRatio: 2 });
     const res = await fetch(dataUrl);
     return await res.blob();
   } finally {
-    document.body.removeChild(container);
+    document.body.removeChild(iframe);
+    URL.revokeObjectURL(blobUrl);
   }
 }
 
