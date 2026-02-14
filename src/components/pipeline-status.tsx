@@ -37,11 +37,16 @@ export function PipelineStatusOverlay({ status, x, y, width, frameHeight }: Pipe
           />
         )}
       </div>
-      {status.skipped && (
-        <span className="text-[10px] font-medium text-amber-400/80 whitespace-nowrap mt-1">
-          ⏭ {status.reason || "Skipped"}
+      <div className="flex items-center justify-between mt-1.5">
+        <span className="text-[10px] font-medium text-gray-400 whitespace-nowrap">
+          {config.icon} {config.label}
         </span>
-      )}
+        {status.skipped && (
+          <span className="text-[10px] font-medium text-amber-400/80 whitespace-nowrap">
+            ⏭ {status.reason || "Skipped"}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

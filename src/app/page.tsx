@@ -304,12 +304,12 @@ export default function Home() {
       const width: number | undefined = layoutResult.width;
       const height: number | undefined = layoutResult.height;
 
-      // Show layout preview immediately
+      // Show layout preview immediately (set isLoading false so iframe renders)
       setGroups((prev) =>
         prev.map((g) => ({
           ...g,
           iterations: g.iterations.map((iter) =>
-            iter.id !== iterId ? iter : { ...iter, html, width: width || iter.width, height: height || iter.height }
+            iter.id !== iterId ? iter : { ...iter, html, width: width || iter.width, height: height || iter.height, isLoading: false }
           ),
         }))
       );
@@ -358,7 +358,18 @@ export default function Home() {
             model: settings.model,
             apiKey: settings.apiKey || undefined,
           }, signal);
-          if (qaResult.html) html = qaResult.html;
+          if (qaResult.html) {
+            html = qaResult.html;
+            // Show reviewed/polished version immediately
+            setGroups((prev) =>
+              prev.map((g) => ({
+                ...g,
+                iterations: g.iterations.map((iter) =>
+                  iter.id !== iterId ? iter : { ...iter, html }
+                ),
+              }))
+            );
+          }
         } catch (qaErr) {
           console.warn("Visual QA failed, using unreviewed version:", qaErr);
         }
