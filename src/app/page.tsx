@@ -65,6 +65,8 @@ export default function Home() {
   const [rubberBand, setRubberBand] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
   // Dropped reference images
   const [canvasImages, setCanvasImages] = useState<CanvasImage[]>([]);
+  const [draggingImageId, setDraggingImageId] = useState<string | null>(null);
+  const imgDragRef = useRef<{ id: string; startMouse: Point; startPos: Point } | null>(null);
 
   const commentCountRef = useRef(0);
 
@@ -111,6 +113,31 @@ export default function Home() {
       reader.readAsDataURL(file);
     });
   }, [canvas.offset.x, canvas.offset.y, canvas.scale]);
+
+  // Image drag handlers
+  const handleImageDragStart = useCallback((id: string, e: React.MouseEvent) => {
+    if (toolMode !== "select" || spaceHeld) return;
+    e.stopPropagation();
+    const img = canvasImages.find((i) => i.id === id);
+    if (!img) return;
+    imgDragRef.current = { id, startMouse: { x: e.clientX, y: e.clientY }, startPos: { ...img.position } };
+    setDraggingImageId(id);
+  }, [toolMode, spaceHeld, canvasImages]);
+
+  const handleImageDragMove = useCallback((e: React.MouseEvent) => {
+    if (!imgDragRef.current) return;
+    const dx = (e.clientX - imgDragRef.current.startMouse.x) / canvas.scale;
+    const dy = (e.clientY - imgDragRef.current.startMouse.y) / canvas.scale;
+    const dragId = imgDragRef.current.id;
+    setCanvasImages((prev) => prev.map((img) =>
+      img.id === dragId ? { ...img, position: { x: imgDragRef.current!.startPos.x + dx, y: imgDragRef.current!.startPos.y + dy } } : img
+    ));
+  }, [canvas.scale]);
+
+  const handleImageDragEnd = useCallback(() => {
+    imgDragRef.current = null;
+    setDraggingImageId(null);
+  }, []);
 
   // Dev mode from URL
   useEffect(() => {
@@ -1075,7 +1102,9 @@ export default function Home() {
           }
         }}
         onMouseMove={(e) => {
-          if (draggingId) {
+          if (draggingImageId) {
+            handleImageDragMove(e);
+          } else if (draggingId) {
             handleFrameDragMove(e);
           } else if (rubberBand) {
             setRubberBand((prev) => prev ? { ...prev, currentX: e.clientX, currentY: e.clientY } : null);
@@ -1084,7 +1113,9 @@ export default function Home() {
           }
         }}
         onMouseUp={() => {
-          if (draggingId) {
+          if (draggingImageId) {
+            handleImageDragEnd();
+          } else if (draggingId) {
             handleFrameDragEnd();
           } else if (rubberBand) {
             // Calculate rubber band rect in canvas coordinates
@@ -1123,7 +1154,7 @@ export default function Home() {
           }
         }}
         onMouseLeave={() => {
-          if (draggingId) { handleFrameDragEnd(); } else { setRubberBand(null); canvas.onMouseUp(); }
+          if (draggingImageId) { handleImageDragEnd(); } else if (draggingId) { handleFrameDragEnd(); } else { setRubberBand(null); canvas.onMouseUp(); }
         }}
         onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }}
         onDrop={(e) => {
@@ -1144,13 +1175,14 @@ export default function Home() {
           {canvasImages.map((img) => (
             <div
               key={img.id}
-              className="absolute group"
+              className={`absolute group ${toolMode === "select" && !spaceHeld ? (draggingImageId === img.id ? "cursor-grabbing" : "cursor-grab") : ""}`}
               style={{
                 left: img.position.x,
                 top: img.position.y,
                 width: img.width,
                 height: img.height,
               }}
+              onMouseDown={(e) => handleImageDragStart(img.id, e)}
             >
               <img
                 src={img.dataUrl}
