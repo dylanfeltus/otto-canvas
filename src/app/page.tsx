@@ -1158,14 +1158,22 @@ export default function Home() {
               const canvasMaxY = toCanvasY(maxScreenY);
 
               const newSelected = new Set(selectedIds);
+              // Hit test frames
               for (const iter of allIterations) {
                 const ix = iter.position.x;
                 const iy = iter.position.y;
                 const iw = iter.width || FRAME_WIDTH;
                 const ih = iter.height || 300;
-                // Check overlap
                 if (ix + iw > canvasMinX && ix < canvasMaxX && iy + ih > canvasMinY && iy < canvasMaxY) {
                   newSelected.add(iter.id);
+                }
+              }
+              // Hit test canvas images
+              for (const img of canvasImages) {
+                const ix = img.position.x;
+                const iy = img.position.y;
+                if (ix + img.width > canvasMinX && ix < canvasMaxX && iy + img.height > canvasMinY && iy < canvasMaxY) {
+                  newSelected.add(img.id);
                 }
               }
               setSelectedIds(newSelected);
