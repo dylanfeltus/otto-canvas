@@ -14,6 +14,7 @@ import { PipelineStatusOverlay } from "@/components/pipeline-status";
 import { OnboardingModal } from "@/components/onboarding-modal";
 import { GuidedTour } from "@/components/guided-tour";
 import { useOnboarding } from "@/hooks/use-onboarding";
+import { usePersistedImages } from "@/hooks/use-persisted-images";
 import type { PipelineStatus } from "@/lib/pipeline";
 import type {
   DesignIteration,
@@ -63,8 +64,8 @@ export default function Home() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   // Rubber band selection state
   const [rubberBand, setRubberBand] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
-  // Dropped reference images
-  const [canvasImages, setCanvasImages] = useState<CanvasImage[]>([]);
+  // Dropped reference images (persisted in IndexedDB)
+  const { images: canvasImages, setImages: setCanvasImages } = usePersistedImages();
   const [draggingImageId, setDraggingImageId] = useState<string | null>(null);
   const imgDragRef = useRef<{ id: string; startMouse: Point; startPos: Point } | null>(null);
   const imgDragStartPositions = useRef<Map<string, Point>>(new Map());
