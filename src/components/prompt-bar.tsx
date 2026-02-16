@@ -116,7 +116,7 @@ export function PromptBar({ onSubmit, isGenerating, genStatus, onCancel, imageCo
           value={value}
           onChange={(e) => { setValue(e.target.value); setHistoryIndex(-1); autoResize(); }}
           onKeyDown={handleKeyDown}
-          placeholder={imageCount > 0 ? "Describe a design (images included as context)..." : "Describe a design..."}
+          placeholder="Describe a design..."
           rows={1}
           className="flex-1 px-0 py-2 text-[15px] text-gray-800 placeholder-gray-400/70 bg-transparent outline-none resize-none leading-[22px]"
           style={{ maxHeight: 22 * 6 }}
