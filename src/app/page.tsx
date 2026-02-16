@@ -685,7 +685,7 @@ export default function Home() {
 
             setGenStatus(
               critique
-                ? `Designing ${i + 1} of ${iterationCount} (with feedback)…`
+                ? `Designing ${i + 1} of ${iterationCount}…`
                 : `Designing ${i + 1} of ${iterationCount}…`
             );
 
