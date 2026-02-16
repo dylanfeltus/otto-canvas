@@ -1296,7 +1296,7 @@ export default function Home() {
         </div>
 
         {/* Empty state */}
-        {groups.length === 0 && (
+        {groups.length === 0 && canvasImages.length === 0 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <div className="text-center">
               <h1 className="text-2xl font-semibold text-gray-300 mb-2">
