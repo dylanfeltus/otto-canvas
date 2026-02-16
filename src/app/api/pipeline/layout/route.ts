@@ -166,6 +166,7 @@ export async function POST(req: NextRequest) {
     const {
       prompt, style, model, apiKey, systemPrompt, critique,
       availableSources = [], revision, existingHtml,
+      contextImages = [],
     } = body;
 
     const useModel = model || DEFAULT_MODEL;
@@ -214,11 +215,37 @@ OUTPUT: HTML only — no explanation, no markdown, no code fences. ALL CSS in a 
       userContent = buildNewPrompt(systemPrompt, critique, prompt, style, availableSources);
     }
 
+    // Build message content — text + optional context images
+    type MediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+    type ContentBlock = { type: "text"; text: string } | { type: "image"; source: { type: "base64"; media_type: MediaType; data: string } };
+    const messageContent: ContentBlock[] = [];
+
+    // Add context images first so Claude sees them before the prompt
+    if (contextImages && contextImages.length > 0) {
+      const validTypes = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+      for (const dataUrl of contextImages) {
+        const match = dataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/);
+        if (match && validTypes.has(match[1])) {
+          messageContent.push({
+            type: "image",
+            source: { type: "base64", media_type: match[1] as MediaType, data: match[2] },
+          });
+        }
+      }
+      // Add context instruction
+      messageContent.push({
+        type: "text",
+        text: `The images above are reference images provided by the user. Use them as visual context and inspiration for the design — match their style, color palette, mood, and content where appropriate.\n\n`,
+      });
+    }
+
+    messageContent.push({ type: "text", text: userContent });
+
     // Use streaming to avoid Vercel timeout — stream keeps connection alive
     const stream = client.messages.stream({
       model: useModel,
       max_tokens: 16384,
-      messages: [{ role: "user", content: userContent }],
+      messages: [{ role: "user", content: messageContent.length === 1 ? userContent : messageContent }],
     });
 
     // Collect the full response via streaming, then return JSON

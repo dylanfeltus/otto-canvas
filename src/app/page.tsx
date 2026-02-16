@@ -21,6 +21,7 @@ import type {
   ToolMode,
   Comment as CommentType,
   Point,
+  CanvasImage,
 } from "@/lib/types";
 
 export default function Home() {
@@ -62,8 +63,54 @@ export default function Home() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   // Rubber band selection state
   const [rubberBand, setRubberBand] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+  // Dropped reference images
+  const [canvasImages, setCanvasImages] = useState<CanvasImage[]>([]);
 
   const commentCountRef = useRef(0);
+
+  // Process dropped/uploaded image files into CanvasImage objects
+  const processImageFiles = useCallback((files: File[], dropX?: number, dropY?: number) => {
+    files.forEach((file, idx) => {
+      if (!file.type.startsWith("image/")) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        const img = new Image();
+        img.onload = () => {
+          // Create thumbnail (max 128px)
+          const thumbCanvas = document.createElement("canvas");
+          const scale = Math.min(128 / img.width, 128 / img.height, 1);
+          thumbCanvas.width = img.width * scale;
+          thumbCanvas.height = img.height * scale;
+          const ctx = thumbCanvas.getContext("2d")!;
+          ctx.drawImage(img, 0, 0, thumbCanvas.width, thumbCanvas.height);
+          const thumbnail = thumbCanvas.toDataURL("image/jpeg", 0.7);
+
+          // Position on canvas
+          const cx = dropX !== undefined ? (dropX - canvas.offset.x) / canvas.scale : 100 + idx * 220;
+          const cy = dropY !== undefined ? (dropY - canvas.offset.y) / canvas.scale : 100;
+
+          // Scale display size to max 200px wide
+          const displayScale = Math.min(200 / img.width, 1);
+
+          setCanvasImages((prev) => [
+            ...prev,
+            {
+              id: `img-${Date.now()}-${idx}`,
+              dataUrl,
+              name: file.name,
+              width: img.width * displayScale,
+              height: img.height * displayScale,
+              position: { x: cx, y: cy },
+              thumbnail,
+            },
+          ]);
+        };
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+  }, [canvas.offset.x, canvas.offset.y, canvas.scale]);
 
   // Dev mode from URL
   useEffect(() => {
@@ -279,6 +326,7 @@ export default function Home() {
       critique: string | undefined,
       signal: AbortSignal,
       revisionOpts?: { revision: string; existingHtml: string },
+      contextImages?: string[],
     ): Promise<{ html: string; label: string; width?: number; height?: number; critique?: string }> => {
       const isRevision = !!revisionOpts;
       const enableImages = !!(settings.geminiKey || settings.unsplashKey || settings.openaiKey);
@@ -298,6 +346,7 @@ export default function Home() {
         systemPrompt: settings.systemPrompt || undefined,
         critique, availableSources,
         ...(revisionOpts || {}),
+        ...(contextImages && contextImages.length > 0 ? { contextImages } : {}),
       }, signal);
 
       let html: string = layoutResult.html;
@@ -415,7 +464,11 @@ export default function Home() {
   );
 
   const handleGenerate = useCallback(
-    async (prompt: string) => {
+    async (prompt: string, imageIds?: string[]) => {
+      // Collect context image data URLs for the pipeline
+      const contextImages = imageIds
+        ? canvasImages.filter((img) => imageIds.includes(img.id)).map((img) => img.dataUrl)
+        : undefined;
       setIsGenerating(true);
       setGenStatus("Planning concepts…");
       const groupId = `group-${Date.now()}`;
@@ -552,6 +605,8 @@ export default function Home() {
                 i,
                 undefined,
                 controller.signal,
+                undefined,
+                contextImages,
               ).then((result) => {
                 completeFrame(iterId, result, positions[i]);
                 return result;
@@ -596,6 +651,8 @@ export default function Home() {
                 i,
                 critique,
                 controller.signal,
+                undefined,
+                contextImages,
               );
 
               // Update position to use actual dimensions for layout
@@ -672,7 +729,7 @@ export default function Home() {
         setGenStatus("");
       }
     },
-    [getGridPositions, settings, canvas, quickMode, runPipelineForFrame]
+    [getGridPositions, settings, canvas, quickMode, runPipelineForFrame, canvasImages]
   );
 
   const handleRemix = useCallback(
@@ -1068,6 +1125,12 @@ export default function Home() {
         onMouseLeave={() => {
           if (draggingId) { handleFrameDragEnd(); } else { setRubberBand(null); canvas.onMouseUp(); }
         }}
+        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }}
+        onDrop={(e) => {
+          e.preventDefault();
+          const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
+          if (files.length > 0) processImageFiles(files, e.clientX, e.clientY);
+        }}
       >
         {/* Transform layer — only this moves/scales */}
         <div
@@ -1077,6 +1140,38 @@ export default function Home() {
             willChange: "transform",
           }}
         >
+          {/* Dropped reference images */}
+          {canvasImages.map((img) => (
+            <div
+              key={img.id}
+              className="absolute group"
+              style={{
+                left: img.position.x,
+                top: img.position.y,
+                width: img.width,
+                height: img.height,
+              }}
+            >
+              <img
+                src={img.dataUrl}
+                alt={img.name}
+                className="w-full h-full object-cover rounded-lg shadow-md border border-white/40"
+                draggable={false}
+              />
+              <button
+                onClick={() => setCanvasImages((prev) => prev.filter((i) => i.id !== img.id))}
+                className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+              >
+                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+              <span className="absolute bottom-1 left-1 right-1 text-[9px] text-white bg-black/50 rounded px-1 py-0.5 truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                {img.name}
+              </span>
+            </div>
+          ))}
+
           {allIterations.map((iteration) => (
             <DesignCard
               key={iteration.id}
@@ -1173,7 +1268,7 @@ export default function Home() {
         onToggleZoomControls={() => setSettings({ showZoomControls: !settings.showZoomControls })}
       />
 
-      <PromptBar onSubmit={handleGenerate} isGenerating={isGenerating} genStatus={genStatus} onCancel={() => abortRef.current?.abort()} />
+      <PromptBar onSubmit={handleGenerate} isGenerating={isGenerating} genStatus={genStatus} onCancel={() => abortRef.current?.abort()} canvasImages={canvasImages} />
 
       {/* Dev mode build badge */}
       {showGitHash && (

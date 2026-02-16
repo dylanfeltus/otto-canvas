@@ -37,4 +37,14 @@ export interface GenerationGroup {
   createdAt: number;
 }
 
+export interface CanvasImage {
+  id: string;
+  dataUrl: string; // base64 data URI
+  name: string;
+  width: number;
+  height: number;
+  position: Point;
+  thumbnail: string; // smaller version for UI
+}
+
 export type ToolMode = "select" | "comment";
