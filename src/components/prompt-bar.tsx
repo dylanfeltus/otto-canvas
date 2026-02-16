@@ -102,14 +102,14 @@ export function PromptBar({ onSubmit, isGenerating, genStatus, onCancel, imageCo
         data-tour="prompt-bar"
         className={`pointer-events-auto flex items-center rounded-[20px] px-4 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] bg-white/20 backdrop-blur-3xl border border-white/30 shadow-[0_8px_40px_rgba(0,0,0,0.06),0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-1px_0_rgba(255,255,255,0.15)] ${
           isGenerating
-            ? "w-[280px] py-2.5 justify-center"
+            ? "w-[280px] py-2.5 px-3"
             : "w-[600px] max-w-[90vw] py-4 focus-within:shadow-[0_12px_48px_rgba(59,130,246,0.1),0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.9),inset_0_-1px_0_rgba(255,255,255,0.3)] focus-within:bg-white/30 focus-within:border-white/50"
         }`}
       >
         {isGenerating ? (
           /* Compact status bar */
-          <div className="flex items-center gap-3 w-full">
-            <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
+          <div className="flex items-center justify-between gap-3 w-full">
+            <div className="flex items-center gap-2 min-w-0">
               <svg className="w-4 h-4 animate-spin shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" opacity="0.2" />
                 <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
