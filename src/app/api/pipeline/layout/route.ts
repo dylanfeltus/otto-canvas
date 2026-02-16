@@ -220,22 +220,44 @@ OUTPUT: HTML only — no explanation, no markdown, no code fences. ALL CSS in a 
     type ContentBlock = { type: "text"; text: string } | { type: "image"; source: { type: "base64"; media_type: MediaType; data: string } };
     const messageContent: ContentBlock[] = [];
 
-    // Add context images first so Claude sees them before the prompt
+    // Add user-provided images — these should appear IN the design as <img> tags
+    const imageTokenMap: Record<string, string> = {}; // [USER_IMAGE_1] -> data:image/...
     if (contextImages && contextImages.length > 0) {
       const validTypes = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
-      for (const dataUrl of contextImages) {
+      const imageRefs: string[] = [];
+
+      for (let i = 0; i < contextImages.length; i++) {
+        const dataUrl = contextImages[i];
         const match = dataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/);
         if (match && validTypes.has(match[1])) {
+          const token = `[USER_IMAGE_${i + 1}]`;
+          imageTokenMap[token] = dataUrl;
+
+          // Send the image as a vision block so Claude can see it
           messageContent.push({
             type: "image",
             source: { type: "base64", media_type: match[1] as MediaType, data: match[2] },
           });
+          imageRefs.push(`- Image ${i + 1}: Use src="${token}" to place this image`);
         }
       }
-      // Add context instruction
+
       messageContent.push({
         type: "text",
-        text: `The images above are reference images provided by the user. Use them as visual context and inspiration for the design — match their style, color palette, mood, and content where appropriate.\n\n`,
+        text: `USER-PROVIDED IMAGES — USE THESE IN THE DESIGN:
+The ${imageRefs.length} image${imageRefs.length > 1 ? "s" : ""} above ${imageRefs.length > 1 ? "are" : "is"} provided by the user to include IN the design.
+
+${imageRefs.join("\n")}
+
+RULES FOR USER IMAGES:
+- Place them as <img> tags using the token as the src attribute (e.g., <img src="${imageRefs.length > 0 ? `[USER_IMAGE_1]` : ""}" />)
+- Position them where they fit best in the design layout
+- You can use each image once or multiple times
+- Style them with CSS (border-radius, object-fit, shadows, etc.)
+- Do NOT use placeholder divs for content these images cover
+- You can STILL use data-placeholder divs for ADDITIONAL images beyond what the user provided
+
+`,
       });
     }
 
@@ -276,6 +298,11 @@ OUTPUT: HTML only — no explanation, no markdown, no code fences. ALL CSS in a 
           let result = parseHtmlWithSize(fullText);
           if (restoreFn) {
             result = { ...result, html: restoreFn(result.html) };
+          }
+
+          // Replace user image tokens with actual data URLs
+          for (const [token, dataUrl] of Object.entries(imageTokenMap)) {
+            result.html = result.html.replaceAll(token, dataUrl);
           }
 
           // Send the actual JSON result
