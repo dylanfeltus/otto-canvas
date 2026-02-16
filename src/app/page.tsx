@@ -67,6 +67,7 @@ export default function Home() {
   const [canvasImages, setCanvasImages] = useState<CanvasImage[]>([]);
   const [draggingImageId, setDraggingImageId] = useState<string | null>(null);
   const imgDragRef = useRef<{ id: string; startMouse: Point; startPos: Point } | null>(null);
+  const imgDragStartPositions = useRef<Map<string, Point>>(new Map());
 
   const commentCountRef = useRef(0);
 
@@ -121,18 +122,27 @@ export default function Home() {
     const img = canvasImages.find((i) => i.id === id);
     if (!img) return;
     imgDragRef.current = { id, startMouse: { x: e.clientX, y: e.clientY }, startPos: { ...img.position } };
+    // Also capture start positions of all selected images for multi-drag
+    imgDragStartPositions.current.clear();
+    const movingIds = selectedIds.has(id) ? selectedIds : new Set([id]);
+    for (const ci of canvasImages) {
+      if (movingIds.has(ci.id)) imgDragStartPositions.current.set(ci.id, { ...ci.position });
+    }
     setDraggingImageId(id);
-  }, [toolMode, spaceHeld, canvasImages]);
+  }, [toolMode, spaceHeld, canvasImages, selectedIds]);
 
   const handleImageDragMove = useCallback((e: React.MouseEvent) => {
     if (!imgDragRef.current) return;
     const dx = (e.clientX - imgDragRef.current.startMouse.x) / canvas.scale;
     const dy = (e.clientY - imgDragRef.current.startMouse.y) / canvas.scale;
     const dragId = imgDragRef.current.id;
-    setCanvasImages((prev) => prev.map((img) =>
-      img.id === dragId ? { ...img, position: { x: imgDragRef.current!.startPos.x + dx, y: imgDragRef.current!.startPos.y + dy } } : img
-    ));
-  }, [canvas.scale]);
+    const movingIds = selectedIds.has(dragId) ? selectedIds : new Set([dragId]);
+    setCanvasImages((prev) => prev.map((img) => {
+      if (!movingIds.has(img.id)) return img;
+      const startPos = imgDragStartPositions.current.get(img.id) || img.position;
+      return { ...img, position: { x: startPos.x + dx, y: startPos.y + dy } };
+    }));
+  }, [canvas.scale, selectedIds]);
 
   const handleImageDragEnd = useCallback(() => {
     imgDragRef.current = null;
@@ -166,6 +176,7 @@ export default function Home() {
             iterations: g.iterations.filter((iter) => !selectedIds.has(iter.id)),
           })).filter((g) => g.iterations.length > 0)
         );
+        setCanvasImages((prev) => prev.filter((img) => !selectedIds.has(img.id)));
         setSelectedIds(new Set());
       }
     };
@@ -1175,7 +1186,14 @@ export default function Home() {
           {canvasImages.map((img) => (
             <div
               key={img.id}
-              className={`absolute group ${toolMode === "select" && !spaceHeld ? (draggingImageId === img.id ? "cursor-grabbing" : "cursor-grab") : ""}`}
+              className={`absolute group rounded-lg overflow-hidden shadow-md transition-shadow ${
+                selectedIds.has(img.id)
+                  ? "ring-2 ring-blue-500 border-blue-400/50 shadow-lg"
+                  : "border border-white/40 hover:shadow-lg"
+              } ${toolMode === "select" && !spaceHeld
+                ? (draggingImageId === img.id ? "cursor-grabbing shadow-xl ring-2 ring-blue-400/30" : "cursor-grab")
+                : ""
+              }`}
               style={{
                 left: img.position.x,
                 top: img.position.y,
@@ -1183,21 +1201,27 @@ export default function Home() {
                 height: img.height,
               }}
               onMouseDown={(e) => handleImageDragStart(img.id, e)}
+              onClick={(e) => {
+                if (toolMode !== "select" || spaceHeld) return;
+                e.stopPropagation();
+                if (e.shiftKey) {
+                  setSelectedIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(img.id)) next.delete(img.id);
+                    else next.add(img.id);
+                    return next;
+                  });
+                } else {
+                  setSelectedIds(new Set([img.id]));
+                }
+              }}
             >
               <img
                 src={img.dataUrl}
                 alt={img.name}
-                className="w-full h-full object-cover rounded-lg shadow-md border border-white/40"
+                className="w-full h-full object-cover"
                 draggable={false}
               />
-              <button
-                onClick={() => setCanvasImages((prev) => prev.filter((i) => i.id !== img.id))}
-                className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-              >
-                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
               <span className="absolute bottom-1 left-1 right-1 text-[9px] text-white bg-black/50 rounded px-1 py-0.5 truncate opacity-0 group-hover:opacity-100 transition-opacity">
                 {img.name}
               </span>
