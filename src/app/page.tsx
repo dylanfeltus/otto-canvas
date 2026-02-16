@@ -502,10 +502,10 @@ export default function Home() {
   );
 
   const handleGenerate = useCallback(
-    async (prompt: string, imageIds?: string[]) => {
-      // Collect context image data URLs for the pipeline
-      const contextImages = imageIds
-        ? canvasImages.filter((img) => imageIds.includes(img.id)).map((img) => img.dataUrl)
+    async (prompt: string) => {
+      // Auto-include all canvas images as context
+      const contextImages = canvasImages.length > 0
+        ? canvasImages.map((img) => img.dataUrl)
         : undefined;
       setIsGenerating(true);
       setGenStatus("Planning concepts…");
@@ -1324,7 +1324,7 @@ export default function Home() {
         onToggleZoomControls={() => setSettings({ showZoomControls: !settings.showZoomControls })}
       />
 
-      <PromptBar onSubmit={handleGenerate} isGenerating={isGenerating} genStatus={genStatus} onCancel={() => abortRef.current?.abort()} canvasImages={canvasImages} />
+      <PromptBar onSubmit={handleGenerate} isGenerating={isGenerating} genStatus={genStatus} onCancel={() => abortRef.current?.abort()} imageCount={canvasImages.length} />
 
       {/* Dev mode build badge */}
       {showGitHash && (
