@@ -81,13 +81,23 @@ export default function Home() {
         const dataUrl = e.target?.result as string;
         const img = new Image();
         img.onload = () => {
+          // Compress for API: max 1024px on longest edge, JPEG 70%
+          const maxDim = 1024;
+          const apiScale = Math.min(maxDim / Math.max(img.width, img.height), 1);
+          const apiCanvas = document.createElement("canvas");
+          apiCanvas.width = img.width * apiScale;
+          apiCanvas.height = img.height * apiScale;
+          const apiCtx = apiCanvas.getContext("2d")!;
+          apiCtx.drawImage(img, 0, 0, apiCanvas.width, apiCanvas.height);
+          const compressedDataUrl = apiCanvas.toDataURL("image/jpeg", 0.7);
+
           // Create thumbnail (max 128px)
+          const thumbScale = Math.min(128 / img.width, 128 / img.height, 1);
           const thumbCanvas = document.createElement("canvas");
-          const scale = Math.min(128 / img.width, 128 / img.height, 1);
-          thumbCanvas.width = img.width * scale;
-          thumbCanvas.height = img.height * scale;
-          const ctx = thumbCanvas.getContext("2d")!;
-          ctx.drawImage(img, 0, 0, thumbCanvas.width, thumbCanvas.height);
+          thumbCanvas.width = img.width * thumbScale;
+          thumbCanvas.height = img.height * thumbScale;
+          const thumbCtx = thumbCanvas.getContext("2d")!;
+          thumbCtx.drawImage(img, 0, 0, thumbCanvas.width, thumbCanvas.height);
           const thumbnail = thumbCanvas.toDataURL("image/jpeg", 0.7);
 
           // Position on canvas
@@ -101,7 +111,7 @@ export default function Home() {
             ...prev,
             {
               id: `img-${Date.now()}-${idx}`,
-              dataUrl,
+              dataUrl: compressedDataUrl,
               name: file.name,
               width: img.width * displayScale,
               height: img.height * displayScale,
