@@ -37,6 +37,8 @@ export default function Home() {
     canvas.setCanvasRef(el);
   }, [canvas.setCanvasRef]);
   const { groups, setGroups, resetSession } = usePersistedGroups();
+  const groupsRef = useRef(groups);
+  useEffect(() => { groupsRef.current = groups; }, [groups]);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [toolMode, setToolMode] = useState<ToolMode>("select");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -947,23 +949,20 @@ export default function Home() {
         prev?.id === commentId ? { ...prev, status: "working" } : prev
       );
 
-      // Get latest iteration HTML and comment thread from current groups
+      // Get latest iteration HTML and comment thread from ref (always current)
       let currentHtml = "";
       let currentPrompt = "";
       let latestThread: CommentMessage[] = [];
-      setGroups((prev) => {
-        for (const g of prev) {
-          for (const iter of g.iterations) {
-            if (iter.id === iterationId) {
-              currentHtml = iter.html;
-              currentPrompt = iter.prompt || "";
-              const comment = iter.comments.find((c) => c.id === commentId);
-              if (comment?.thread) latestThread = comment.thread;
-            }
+      for (const g of groupsRef.current) {
+        for (const iter of g.iterations) {
+          if (iter.id === iterationId) {
+            currentHtml = iter.html;
+            currentPrompt = iter.prompt || "";
+            const comment = iter.comments.find((c) => c.id === commentId);
+            if (comment?.thread) latestThread = comment.thread;
           }
         }
-        return prev; // no mutation
-      });
+      }
 
       try {
         const controller = new AbortController();
