@@ -10,7 +10,7 @@ function getClient(apiKey?: string): Anthropic {
   return new Anthropic();
 }
 
-function parseHtmlWithSize(raw: string): { html: string; width?: number; height?: number } {
+function parseHtmlWithSize(raw: string): { html: string; width?: number; height?: number; comment?: string } {
   let cleaned = raw.trim();
   if (cleaned.startsWith("```")) {
     cleaned = cleaned.replace(/^```(?:html)?\n?/, "").replace(/\n?```$/, "");
@@ -28,6 +28,14 @@ function parseHtmlWithSize(raw: string): { html: string; width?: number; height?
     cleaned = cleaned.replace(/<!--size:\d+x\d+-->\n?/, "").trim();
   }
 
+  // Extract Otto's designer comment
+  let comment: string | undefined;
+  const commentMatch = cleaned.match(/<!--otto:(.*?)-->/);
+  if (commentMatch) {
+    comment = commentMatch[1].trim();
+    cleaned = cleaned.replace(/<!--otto:.*?-->\n?/, "").trim();
+  }
+
   const htmlStart = cleaned.match(/^[\s\S]*?(<(?:!DOCTYPE|html|head|style|div|section|main|body|meta|link)[>\s])/i);
   if (htmlStart && htmlStart.index !== undefined && htmlStart.index > 0) {
     cleaned = cleaned.substring(htmlStart.index);
@@ -35,7 +43,7 @@ function parseHtmlWithSize(raw: string): { html: string; width?: number; height?
   const lastTagMatch = cleaned.match(/([\s\S]*<\/(?:html|div|section|main|body)>)/i);
   if (lastTagMatch) cleaned = lastTagMatch[1];
 
-  return { html: cleaned.trim(), width, height };
+  return { html: cleaned.trim(), width, height, comment };
 }
 
 /** Strip base64 data URIs from HTML */
@@ -209,6 +217,14 @@ ABSOLUTELY NO MOTION — no CSS animations, transitions, @keyframes, hover effec
 
 SIZE — output a size comment on the FIRST line:
 <!--size:WIDTHxHEIGHT-->
+
+DESIGNER COMMENT — on the LAST line, add a brief comment about what you did:
+<!--otto:Your brief, friendly comment here-->
+Examples:
+- <!--otto:Centered the pool section and balanced the spacing on both sides.-->
+- <!--otto:Wasn't sure if you meant the icon or the text — I adjusted both. Let me know!-->
+- <!--otto:Done! You might also want to bump up the font size on the headers to match.-->
+Keep it to 1-2 short sentences. Be helpful, specific, and conversational — like a design teammate.
 
 OUTPUT: HTML only — no explanation, no markdown, no code fences. ALL CSS in a <style> tag.`;
     } else {
