@@ -10,8 +10,16 @@ const IMG_STORE = "images";
 /** IndexedDB helpers for storing base64 images */
 function openImgDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IMG_DB_NAME, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(IMG_STORE);
+    const req = indexedDB.open(IMG_DB_NAME, 2);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IMG_STORE)) {
+        db.createObjectStore(IMG_STORE);
+      }
+      if (!db.objectStoreNames.contains("ref-images")) {
+        db.createObjectStore("ref-images");
+      }
+    };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
