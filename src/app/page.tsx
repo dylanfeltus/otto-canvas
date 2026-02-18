@@ -8,6 +8,7 @@ import { usePersistedGroups } from "@/hooks/use-persisted-groups";
 import { PromptBar } from "@/components/prompt-bar";
 import { Toolbar } from "@/components/toolbar";
 import { CommentInput } from "@/components/comment-input";
+import { CommentThread } from "@/components/comment-thread";
 import { SettingsModal } from "@/components/settings-modal";
 import { PromptLibrary } from "@/components/prompt-library";
 import { PipelineStatusOverlay } from "@/components/pipeline-status";
@@ -21,6 +22,7 @@ import type {
   GenerationGroup,
   ToolMode,
   Comment as CommentType,
+  CommentMessage,
   Point,
   CanvasImage,
 } from "@/lib/types";
@@ -61,6 +63,7 @@ export default function Home() {
   } | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [activeComment, setActiveComment] = useState<CommentType | null>(null);
+  const [activeCommentIterationId, setActiveCommentIterationId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   // Rubber band selection state
   const [rubberBand, setRubberBand] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
@@ -907,6 +910,12 @@ export default function Home() {
       commentCountRef.current += 1;
 
       const commentId = `comment-${Date.now()}`;
+      const userMessage: CommentMessage = {
+        id: `msg-${Date.now()}`,
+        role: "user",
+        text,
+        createdAt: Date.now(),
+      };
       const newComment: CommentType = {
         id: commentId,
         position: commentDraft.position,
@@ -914,6 +923,7 @@ export default function Home() {
         number: commentCountRef.current,
         createdAt: Date.now(),
         status: "waiting",
+        thread: [userMessage],
       };
 
       // Add comment to the iteration
@@ -1002,10 +1012,17 @@ export default function Home() {
             }))
           );
 
-          // Mark comment as done with response
+          // Mark comment as done with Otto's response in thread
+          const ottoResponse: CommentMessage = {
+            id: `msg-${Date.now()}`,
+            role: "otto",
+            text: `Applied your revision: "${text.length > 80 ? text.slice(0, 80) + "…" : text}"`,
+            createdAt: Date.now(),
+          };
           updateComment(iterId, commentId, {
             status: "done",
-            aiResponse: `✅ Applied: "${text.length > 60 ? text.slice(0, 60) + "…" : text}"`,
+            aiResponse: ottoResponse.text,
+            thread: [...(newComment.thread || []), ottoResponse],
           });
 
         } catch (err) {
@@ -1021,9 +1038,16 @@ export default function Home() {
               }),
             }))
           );
+          const errorResponse: CommentMessage = {
+            id: `msg-${Date.now()}`,
+            role: "otto",
+            text: `Revision failed: ${err instanceof Error ? err.message : "Unknown error"}. Try again.`,
+            createdAt: Date.now(),
+          };
           updateComment(iterId, commentId, {
             status: "done",
-            aiResponse: `⚠️ Revision failed: ${err instanceof Error ? err.message : "Unknown error"}. Try again.`,
+            aiResponse: errorResponse.text,
+            thread: [...(newComment.thread || []), errorResponse],
           });
         }
       }
@@ -1031,9 +1055,143 @@ export default function Home() {
     [commentDraft, runPipelineForFrame]
   );
 
-  const handleClickComment = useCallback((comment: CommentType) => {
+  const handleClickComment = useCallback((comment: CommentType, iterationId: string) => {
     setActiveComment((prev) => (prev?.id === comment.id ? null : comment));
+    setActiveCommentIterationId((prev) => (comment ? iterationId : null));
   }, []);
+
+  // Handle reply in a comment thread
+  const handleCommentReply = useCallback(
+    async (text: string) => {
+      if (!activeComment || !activeCommentIterationId) return;
+
+      const commentId = activeComment.id;
+      const iterId = activeCommentIterationId;
+      const currentThread = activeComment.thread || [
+        { id: "msg-0", role: "user" as const, text: activeComment.text, createdAt: activeComment.createdAt },
+      ];
+
+      // Add user message to thread
+      const userMessage: CommentMessage = {
+        id: `msg-${Date.now()}`,
+        role: "user",
+        text,
+        createdAt: Date.now(),
+      };
+      const updatedThread = [...currentThread, userMessage];
+
+      const updateComment = (update: Partial<CommentType>) => {
+        setGroups((prev) =>
+          prev.map((g) => ({
+            ...g,
+            iterations: g.iterations.map((iter) => {
+              if (iter.id !== iterId) return iter;
+              return {
+                ...iter,
+                comments: iter.comments.map((c) =>
+                  c.id === commentId ? { ...c, ...update } : c
+                ),
+              };
+            }),
+          }))
+        );
+      };
+
+      updateComment({ thread: updatedThread, status: "working" });
+
+      // Also update active comment locally so UI reflects immediately
+      setActiveComment((prev) => prev ? { ...prev, thread: updatedThread, status: "working" } : prev);
+
+      // Mark iteration as regenerating
+      setGroups((prev) =>
+        prev.map((g) => ({
+          ...g,
+          iterations: g.iterations.map((iter) => {
+            if (iter.id !== iterId) return iter;
+            return { ...iter, isRegenerating: true };
+          }),
+        }))
+      );
+
+      // Find the current iteration HTML
+      let targetIteration: DesignIteration | null = null;
+      for (const g of groups) {
+        for (const iter of g.iterations) {
+          if (iter.id === iterId) {
+            targetIteration = iter;
+            break;
+          }
+        }
+      }
+
+      if (!targetIteration) return;
+
+      setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "layout", progress: 0.2 } }));
+
+      try {
+        const controller = new AbortController();
+        const result = await runPipelineForFrame(
+          iterId,
+          targetIteration.prompt || "",
+          "revision",
+          0,
+          undefined,
+          controller.signal,
+          { revision: text, existingHtml: targetIteration.html },
+        );
+
+        setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "done", progress: 1 } }));
+
+        setGroups((prev) =>
+          prev.map((g) => ({
+            ...g,
+            iterations: g.iterations.map((iter) => {
+              if (iter.id !== iterId) return iter;
+              return {
+                ...iter,
+                html: result.html || iter.html,
+                width: result.width || iter.width,
+                height: result.height || iter.height,
+                isRegenerating: false,
+              };
+            }),
+          }))
+        );
+
+        const ottoResponse: CommentMessage = {
+          id: `msg-${Date.now()}`,
+          role: "otto",
+          text: `Applied your revision: "${text.length > 80 ? text.slice(0, 80) + "…" : text}"`,
+          createdAt: Date.now(),
+        };
+        const finalThread = [...updatedThread, ottoResponse];
+        updateComment({ status: "done", aiResponse: ottoResponse.text, thread: finalThread });
+        setActiveComment((prev) => prev?.id === commentId ? { ...prev, status: "done", aiResponse: ottoResponse.text, thread: finalThread } : prev);
+      } catch (err) {
+        console.error("Reply revision failed:", err);
+        setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "error", progress: 0 } }));
+        setGroups((prev) =>
+          prev.map((g) => ({
+            ...g,
+            iterations: g.iterations.map((iter) => {
+              if (iter.id !== iterId) return iter;
+              return { ...iter, isRegenerating: false };
+            }),
+          }))
+        );
+        const errorResponse: CommentMessage = {
+          id: `msg-${Date.now()}`,
+          role: "otto",
+          text: `Revision failed: ${err instanceof Error ? err.message : "Unknown error"}. Try again.`,
+          createdAt: Date.now(),
+        };
+        const finalThread = [...updatedThread, errorResponse];
+        updateComment({ status: "done", aiResponse: errorResponse.text, thread: finalThread });
+        setActiveComment((prev) => prev?.id === commentId ? { ...prev, status: "done", aiResponse: errorResponse.text, thread: finalThread } : prev);
+      }
+    },
+    [activeComment, activeCommentIterationId, groups, runPipelineForFrame]
+  );
 
   // Frame drag handlers
   const handleFrameDragStart = useCallback(
@@ -1366,23 +1524,11 @@ export default function Home() {
 
       {/* Active comment detail panel */}
       {activeComment && (
-        <div className="fixed top-4 right-4 z-50 bg-white/50 backdrop-blur-2xl rounded-2xl border border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.7)] p-4 w-[260px]">
-          <div className="flex items-center gap-2 mb-2.5">
-            <span className="w-6 h-6 rounded-full bg-blue-500/90 text-white text-[11px] font-bold flex items-center justify-center shadow-sm">
-              {activeComment.number}
-            </span>
-            <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-              Comment #{activeComment.number}
-            </span>
-            <button
-              onClick={() => setActiveComment(null)}
-              className="ml-auto text-gray-400 hover:text-gray-600 text-sm leading-none p-1 rounded-lg hover:bg-black/5 transition-colors"
-            >
-              ✕
-            </button>
-          </div>
-          <p className="text-[13px] text-gray-700 leading-relaxed">{activeComment.text}</p>
-        </div>
+        <CommentThread
+          comment={activeComment}
+          onClose={() => { setActiveComment(null); setActiveCommentIterationId(null); }}
+          onReply={handleCommentReply}
+        />
       )}
 
       {/* Prompt library slide-out */}

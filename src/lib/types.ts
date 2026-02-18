@@ -18,6 +18,13 @@ export interface DesignIteration {
 
 export type CommentStatus = "waiting" | "working" | "done";
 
+export interface CommentMessage {
+  id: string;
+  role: "user" | "otto";
+  text: string;
+  createdAt: number;
+}
+
 export interface Comment {
   id: string;
   position: Point; // relative to the iteration
@@ -27,6 +34,7 @@ export interface Comment {
   createdAt: number;
   status?: CommentStatus;
   aiResponse?: string;
+  thread?: CommentMessage[];
 }
 
 export interface GenerationGroup {

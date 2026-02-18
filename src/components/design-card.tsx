@@ -18,7 +18,7 @@ interface DesignCardProps {
   isSelected?: boolean;
   onSelect?: (e?: React.MouseEvent) => void;
   onAddComment: (iterationId: string, position: Point) => void;
-  onClickComment: (comment: CommentType) => void;
+  onClickComment: (comment: CommentType, iterationId: string) => void;
   onDragStart: (e: React.MouseEvent) => void;
   onRemix: (iteration: DesignIteration, remixPrompt: string) => void;
   scale: number;
@@ -222,7 +222,7 @@ setTimeout(reportHeight, 1500);
           <CommentPin
             key={comment.id}
             comment={comment}
-            onClick={() => onClickComment(comment)}
+            onClick={() => onClickComment(comment, iteration.id)}
           />
         ))}
       </div>
