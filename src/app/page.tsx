@@ -938,20 +938,26 @@ export default function Home() {
 
     while (revisionQueueRef.current.length > 0) {
       const job = revisionQueueRef.current[0];
-      const { iterationId, commentId, text, thread } = job;
+      const { iterationId, commentId, text } = job;
 
-      // Mark as working
+      // Mark as working and update active comment if open
       updateComment(iterationId, commentId, { status: "working" });
+      setActiveComment((prev) =>
+        prev?.id === commentId ? { ...prev, status: "working" } : prev
+      );
 
-      // Get latest iteration HTML from current groups
+      // Get latest iteration HTML and comment thread from current groups
       let currentHtml = "";
       let currentPrompt = "";
+      let latestThread: CommentMessage[] = [];
       setGroups((prev) => {
         for (const g of prev) {
           for (const iter of g.iterations) {
             if (iter.id === iterationId) {
               currentHtml = iter.html;
               currentPrompt = iter.prompt || "";
+              const comment = iter.comments.find((c) => c.id === commentId);
+              if (comment?.thread) latestThread = comment.thread;
             }
           }
         }
@@ -989,18 +995,18 @@ export default function Home() {
         const ottoResponse: CommentMessage = {
           id: `msg-${Date.now()}`,
           role: "otto",
-          text: `Applied your revision: "${text.length > 80 ? text.slice(0, 80) + "…" : text}"`,
+          text: `Done! I've updated the design.`,
           createdAt: Date.now(),
         };
+        const doneThread = [...latestThread, ottoResponse];
         updateComment(iterationId, commentId, {
           status: "done",
           aiResponse: ottoResponse.text,
-          thread: [...thread, ottoResponse],
+          thread: doneThread,
         });
-        // Update active comment if it's the one being processed
         setActiveComment((prev) =>
           prev?.id === commentId
-            ? { ...prev, status: "done", aiResponse: ottoResponse.text, thread: [...thread, ottoResponse] }
+            ? { ...prev, status: "done", aiResponse: ottoResponse.text, thread: doneThread }
             : prev
         );
       } catch (err) {
@@ -1011,14 +1017,15 @@ export default function Home() {
           text: `Revision failed: ${err instanceof Error ? err.message : "Unknown error"}. Try again.`,
           createdAt: Date.now(),
         };
+        const errorThread = [...latestThread, errorResponse];
         updateComment(iterationId, commentId, {
           status: "done",
           aiResponse: errorResponse.text,
-          thread: [...thread, errorResponse],
+          thread: errorThread,
         });
         setActiveComment((prev) =>
           prev?.id === commentId
-            ? { ...prev, status: "done", aiResponse: errorResponse.text, thread: [...thread, errorResponse] }
+            ? { ...prev, status: "done", aiResponse: errorResponse.text, thread: errorThread }
             : prev
         );
       }
