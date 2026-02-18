@@ -19,6 +19,7 @@
     "@types/node": "^25.2.3",
     "@types/react": "^19.2.14",
     "html-to-image": "^1.11.13",
+    "html2canvas-pro": "^1.6.7",
     "next": "^16.1.6",
     "postcss": "^8.5.6",
     "react": "^19.2.4",

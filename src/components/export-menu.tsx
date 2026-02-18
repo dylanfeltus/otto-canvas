@@ -61,6 +61,11 @@ async function htmlToImageBlob(html: string, width: number, type: "image/png" | 
       )
     );
 
+    // Wait for fonts to load in the iframe context
+    if (doc.fonts && doc.fonts.ready) {
+      await doc.fonts.ready;
+    }
+
     await new Promise((r) => setTimeout(r, 500));
 
     const body = doc.body;
@@ -70,11 +75,26 @@ async function htmlToImageBlob(html: string, width: number, type: "image/png" | 
     // Small delay after resize
     await new Promise((r) => setTimeout(r, 100));
 
-    const { toPng, toJpeg } = await import("html-to-image");
-    const fn = type === "image/jpeg" ? toJpeg : toPng;
-    const dataUrl = await fn(body, { width, height: h, quality: 0.95, pixelRatio: 2 });
-    const res = await fetch(dataUrl);
-    return await res.blob();
+    // Use html2canvas-pro for faithful DOM rasterization.
+    // html-to-image uses SVG foreignObject which measures text differently
+    // and causes line breaks that don't exist in the live canvas.
+    const html2canvas = (await import("html2canvas-pro")).default;
+    const canvas = await html2canvas(body, {
+      width,
+      height: h,
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: null,
+    });
+
+    return new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error("Canvas toBlob failed"))),
+        type,
+        0.95
+      );
+    });
   } finally {
     document.body.removeChild(iframe);
     URL.revokeObjectURL(blobUrl);
