@@ -379,7 +379,7 @@ export default function Home() {
       signal: AbortSignal,
       revisionOpts?: { revision: string; existingHtml: string },
       contextImages?: string[],
-    ): Promise<{ html: string; label: string; width?: number; height?: number; critique?: string }> => {
+    ): Promise<{ html: string; label: string; width?: number; height?: number; critique?: string; comment?: string }> => {
       const isRevision = !!revisionOpts;
       const enableImages = !!(settings.geminiKey || settings.unsplashKey || settings.openaiKey);
       const enableQA = !isRevision;
@@ -404,6 +404,7 @@ export default function Home() {
       let html: string = layoutResult.html;
       const width: number | undefined = layoutResult.width;
       const height: number | undefined = layoutResult.height;
+      const aiComment: string | undefined = layoutResult.comment;
 
       // Show layout preview immediately (set isLoading false so iframe renders)
       setGroups((prev) =>
@@ -510,7 +511,7 @@ export default function Home() {
         // Critique is optional
       }
 
-      return { html, label, width, height, critique: critiqueText };
+      return { html, label, width, height, critique: critiqueText, comment: aiComment };
     },
     [settings.apiKey, settings.model, settings.systemPrompt, settings.geminiKey, settings.unsplashKey, settings.openaiKey, pipelinePost, capOversizedSections]
   );
@@ -995,7 +996,7 @@ export default function Home() {
         const ottoResponse: CommentMessage = {
           id: `msg-${Date.now()}`,
           role: "otto",
-          text: `Done! I've updated the design.`,
+          text: result.comment || "Done! I've updated the design.",
           createdAt: Date.now(),
         };
         const doneThread = [...latestThread, ottoResponse];
