@@ -904,8 +904,134 @@ export default function Home() {
     [canvas.offset, canvas.scale, groups]
   );
 
+  // --- Comment revision queue ---
+  // Allows users to keep adding comments while revisions process one at a time.
+  interface RevisionJob {
+    iterationId: string;
+    commentId: string;
+    text: string;
+    thread: CommentMessage[];
+  }
+  const revisionQueueRef = useRef<RevisionJob[]>([]);
+  const isProcessingRevisionRef = useRef(false);
+
+  const updateComment = useCallback((iterId: string, cId: string, update: Partial<CommentType>) => {
+    setGroups((prev) =>
+      prev.map((g) => ({
+        ...g,
+        iterations: g.iterations.map((iter) => {
+          if (iter.id !== iterId) return iter;
+          return {
+            ...iter,
+            comments: iter.comments.map((c) =>
+              c.id === cId ? { ...c, ...update } : c
+            ),
+          };
+        }),
+      }))
+    );
+  }, []);
+
+  const processRevisionQueue = useCallback(async () => {
+    if (isProcessingRevisionRef.current) return;
+    isProcessingRevisionRef.current = true;
+
+    while (revisionQueueRef.current.length > 0) {
+      const job = revisionQueueRef.current[0];
+      const { iterationId, commentId, text, thread } = job;
+
+      // Mark as working
+      updateComment(iterationId, commentId, { status: "working" });
+
+      // Get latest iteration HTML from current groups
+      let currentHtml = "";
+      let currentPrompt = "";
+      setGroups((prev) => {
+        for (const g of prev) {
+          for (const iter of g.iterations) {
+            if (iter.id === iterationId) {
+              currentHtml = iter.html;
+              currentPrompt = iter.prompt || "";
+            }
+          }
+        }
+        return prev; // no mutation
+      });
+
+      try {
+        const controller = new AbortController();
+        const result = await runPipelineForFrame(
+          iterationId,
+          currentPrompt,
+          "revision",
+          0,
+          undefined,
+          controller.signal,
+          { revision: text, existingHtml: currentHtml },
+        );
+
+        // Update frame HTML (no isRegenerating fade)
+        setGroups((prev) =>
+          prev.map((g) => ({
+            ...g,
+            iterations: g.iterations.map((iter) => {
+              if (iter.id !== iterationId) return iter;
+              return {
+                ...iter,
+                html: result.html || iter.html,
+                width: result.width || iter.width,
+                height: result.height || iter.height,
+              };
+            }),
+          }))
+        );
+
+        const ottoResponse: CommentMessage = {
+          id: `msg-${Date.now()}`,
+          role: "otto",
+          text: `Applied your revision: "${text.length > 80 ? text.slice(0, 80) + "…" : text}"`,
+          createdAt: Date.now(),
+        };
+        updateComment(iterationId, commentId, {
+          status: "done",
+          aiResponse: ottoResponse.text,
+          thread: [...thread, ottoResponse],
+        });
+        // Update active comment if it's the one being processed
+        setActiveComment((prev) =>
+          prev?.id === commentId
+            ? { ...prev, status: "done", aiResponse: ottoResponse.text, thread: [...thread, ottoResponse] }
+            : prev
+        );
+      } catch (err) {
+        console.error("Revision failed:", err);
+        const errorResponse: CommentMessage = {
+          id: `msg-${Date.now()}`,
+          role: "otto",
+          text: `Revision failed: ${err instanceof Error ? err.message : "Unknown error"}. Try again.`,
+          createdAt: Date.now(),
+        };
+        updateComment(iterationId, commentId, {
+          status: "done",
+          aiResponse: errorResponse.text,
+          thread: [...thread, errorResponse],
+        });
+        setActiveComment((prev) =>
+          prev?.id === commentId
+            ? { ...prev, status: "done", aiResponse: errorResponse.text, thread: [...thread, errorResponse] }
+            : prev
+        );
+      }
+
+      // Remove processed job
+      revisionQueueRef.current.shift();
+    }
+
+    isProcessingRevisionRef.current = false;
+  }, [runPipelineForFrame, updateComment]);
+
   const handleCommentSubmit = useCallback(
-    async (text: string) => {
+    (text: string) => {
       if (!commentDraft) return;
       commentCountRef.current += 1;
 
@@ -926,19 +1052,17 @@ export default function Home() {
         thread: [userMessage],
       };
 
-      // Add comment to the iteration
-      let targetIteration: DesignIteration | null = null;
+      const iterId = commentDraft.iterationId;
 
+      // Add comment to iteration (no isRegenerating — user keeps working)
       setGroups((prev) =>
         prev.map((g) => ({
           ...g,
           iterations: g.iterations.map((iter) => {
-            if (iter.id === commentDraft.iterationId) {
-              targetIteration = iter;
+            if (iter.id === iterId) {
               return {
                 ...iter,
                 comments: [...iter.comments, newComment],
-                isRegenerating: true,
               };
             }
             return iter;
@@ -948,111 +1072,18 @@ export default function Home() {
 
       setCommentDraft(null);
 
-      const updateComment = (iterId: string, cId: string, update: Partial<CommentType>) => {
-        setGroups((prev) =>
-          prev.map((g) => ({
-            ...g,
-            iterations: g.iterations.map((iter) => {
-              if (iter.id !== iterId) return iter;
-              return {
-                ...iter,
-                comments: iter.comments.map((c) =>
-                  c.id === cId ? { ...c, ...update } : c
-                ),
-              };
-            }),
-          }))
-        );
-      };
+      // Queue the revision
+      revisionQueueRef.current.push({
+        iterationId: iterId,
+        commentId,
+        text,
+        thread: [userMessage],
+      });
 
-      // Trigger revision
-      if (targetIteration) {
-        const iterId = commentDraft.iterationId;
-
-        // Mark comment as working
-        updateComment(iterId, commentId, { status: "working" });
-        setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "layout", progress: 0.2 } }));
-
-        try {
-          const controller = new AbortController();
-          const typedTarget = targetIteration as DesignIteration;
-
-          let result;
-          try {
-            result = await runPipelineForFrame(
-              iterId,
-              typedTarget.prompt || "",
-              "revision",
-              0,
-              undefined,
-              controller.signal,
-              { revision: text, existingHtml: typedTarget.html },
-            );
-          } catch (err) {
-            console.error("Revision pipeline failed:", err);
-            throw err;
-          }
-
-          setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "done", progress: 1 } }));
-
-          // Update frame with revised HTML
-          setGroups((prev) =>
-            prev.map((g) => ({
-              ...g,
-              iterations: g.iterations.map((iter) => {
-                if (iter.id !== iterId) return iter;
-                return {
-                  ...iter,
-                  html: result.html || iter.html,
-                  width: result.width || iter.width,
-                  height: result.height || iter.height,
-                  isRegenerating: false,
-                };
-              }),
-            }))
-          );
-
-          // Mark comment as done with Otto's response in thread
-          const ottoResponse: CommentMessage = {
-            id: `msg-${Date.now()}`,
-            role: "otto",
-            text: `Applied your revision: "${text.length > 80 ? text.slice(0, 80) + "…" : text}"`,
-            createdAt: Date.now(),
-          };
-          updateComment(iterId, commentId, {
-            status: "done",
-            aiResponse: ottoResponse.text,
-            thread: [...(newComment.thread || []), ottoResponse],
-          });
-
-        } catch (err) {
-          console.error("Revision failed:", err);
-          // ALWAYS reset isRegenerating and pipeline stage on error
-          setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "error", progress: 0 } }));
-          setGroups((prev) =>
-            prev.map((g) => ({
-              ...g,
-              iterations: g.iterations.map((iter) => {
-                if (iter.id !== iterId) return iter;
-                return { ...iter, isRegenerating: false };
-              }),
-            }))
-          );
-          const errorResponse: CommentMessage = {
-            id: `msg-${Date.now()}`,
-            role: "otto",
-            text: `Revision failed: ${err instanceof Error ? err.message : "Unknown error"}. Try again.`,
-            createdAt: Date.now(),
-          };
-          updateComment(iterId, commentId, {
-            status: "done",
-            aiResponse: errorResponse.text,
-            thread: [...(newComment.thread || []), errorResponse],
-          });
-        }
-      }
+      // Kick off processing if not already running
+      processRevisionQueue();
     },
-    [commentDraft, runPipelineForFrame]
+    [commentDraft, processRevisionQueue]
   );
 
   const handleClickComment = useCallback((comment: CommentType, iterationId: string) => {
@@ -1060,9 +1091,9 @@ export default function Home() {
     setActiveCommentIterationId((prev) => (comment ? iterationId : null));
   }, []);
 
-  // Handle reply in a comment thread
+  // Handle reply in a comment thread — queued like new comments
   const handleCommentReply = useCallback(
-    async (text: string) => {
+    (text: string) => {
       if (!activeComment || !activeCommentIterationId) return;
 
       const commentId = activeComment.id;
@@ -1071,7 +1102,6 @@ export default function Home() {
         { id: "msg-0", role: "user" as const, text: activeComment.text, createdAt: activeComment.createdAt },
       ];
 
-      // Add user message to thread
       const userMessage: CommentMessage = {
         id: `msg-${Date.now()}`,
         role: "user",
@@ -1080,117 +1110,21 @@ export default function Home() {
       };
       const updatedThread = [...currentThread, userMessage];
 
-      const updateComment = (update: Partial<CommentType>) => {
-        setGroups((prev) =>
-          prev.map((g) => ({
-            ...g,
-            iterations: g.iterations.map((iter) => {
-              if (iter.id !== iterId) return iter;
-              return {
-                ...iter,
-                comments: iter.comments.map((c) =>
-                  c.id === commentId ? { ...c, ...update } : c
-                ),
-              };
-            }),
-          }))
-        );
-      };
+      // Update thread immediately in UI
+      updateComment(iterId, commentId, { thread: updatedThread, status: "waiting" });
+      setActiveComment((prev) => prev ? { ...prev, thread: updatedThread, status: "waiting" } : prev);
 
-      updateComment({ thread: updatedThread, status: "working" });
+      // Queue the revision
+      revisionQueueRef.current.push({
+        iterationId: iterId,
+        commentId,
+        text,
+        thread: updatedThread,
+      });
 
-      // Also update active comment locally so UI reflects immediately
-      setActiveComment((prev) => prev ? { ...prev, thread: updatedThread, status: "working" } : prev);
-
-      // Mark iteration as regenerating
-      setGroups((prev) =>
-        prev.map((g) => ({
-          ...g,
-          iterations: g.iterations.map((iter) => {
-            if (iter.id !== iterId) return iter;
-            return { ...iter, isRegenerating: true };
-          }),
-        }))
-      );
-
-      // Find the current iteration HTML
-      let targetIteration: DesignIteration | null = null;
-      for (const g of groups) {
-        for (const iter of g.iterations) {
-          if (iter.id === iterId) {
-            targetIteration = iter;
-            break;
-          }
-        }
-      }
-
-      if (!targetIteration) return;
-
-      setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "layout", progress: 0.2 } }));
-
-      try {
-        const controller = new AbortController();
-        const result = await runPipelineForFrame(
-          iterId,
-          targetIteration.prompt || "",
-          "revision",
-          0,
-          undefined,
-          controller.signal,
-          { revision: text, existingHtml: targetIteration.html },
-        );
-
-        setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "done", progress: 1 } }));
-
-        setGroups((prev) =>
-          prev.map((g) => ({
-            ...g,
-            iterations: g.iterations.map((iter) => {
-              if (iter.id !== iterId) return iter;
-              return {
-                ...iter,
-                html: result.html || iter.html,
-                width: result.width || iter.width,
-                height: result.height || iter.height,
-                isRegenerating: false,
-              };
-            }),
-          }))
-        );
-
-        const ottoResponse: CommentMessage = {
-          id: `msg-${Date.now()}`,
-          role: "otto",
-          text: `Applied your revision: "${text.length > 80 ? text.slice(0, 80) + "…" : text}"`,
-          createdAt: Date.now(),
-        };
-        const finalThread = [...updatedThread, ottoResponse];
-        updateComment({ status: "done", aiResponse: ottoResponse.text, thread: finalThread });
-        setActiveComment((prev) => prev?.id === commentId ? { ...prev, status: "done", aiResponse: ottoResponse.text, thread: finalThread } : prev);
-      } catch (err) {
-        console.error("Reply revision failed:", err);
-        setPipelineStages((prev) => ({ ...prev, [iterId]: { stage: "error", progress: 0 } }));
-        setGroups((prev) =>
-          prev.map((g) => ({
-            ...g,
-            iterations: g.iterations.map((iter) => {
-              if (iter.id !== iterId) return iter;
-              return { ...iter, isRegenerating: false };
-            }),
-          }))
-        );
-        const errorResponse: CommentMessage = {
-          id: `msg-${Date.now()}`,
-          role: "otto",
-          text: `Revision failed: ${err instanceof Error ? err.message : "Unknown error"}. Try again.`,
-          createdAt: Date.now(),
-        };
-        const finalThread = [...updatedThread, errorResponse];
-        updateComment({ status: "done", aiResponse: errorResponse.text, thread: finalThread });
-        setActiveComment((prev) => prev?.id === commentId ? { ...prev, status: "done", aiResponse: errorResponse.text, thread: finalThread } : prev);
-      }
+      processRevisionQueue();
     },
-    [activeComment, activeCommentIterationId, groups, runPipelineForFrame]
+    [activeComment, activeCommentIterationId, updateComment, processRevisionQueue]
   );
 
   // Frame drag handlers
